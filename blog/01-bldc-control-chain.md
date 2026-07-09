@@ -25,6 +25,67 @@ target_speed
 
 这里的重点不是公式，而是先把职责边界固定下来。后续每篇文章只深入其中一层。
 
+## 本篇配套仿真
+
+为了让这条链不是停留在文字层面，本篇增加一个 MATLAB 信号级仿真：
+
+```text
+scripts/ch01_control_chain_demo.m
+```
+
+它生成两张图和两份数据：
+
+| 文件 | 作用 |
+|---|---|
+| `assets/01-bldc-control-chain/control_chain_waveforms.png` | 总览目标速度、实际速度、Hall 反馈、duty、step、Hall 和高边 PWM |
+| `assets/01-bldc-control-chain/control_chain_gate_zoom.png` | 放大观察换相 step、Hall 状态、基础 gate 和 PWM 后 gate |
+| `waveforms/01-bldc-control-chain/control_chain_demo.csv` | 全量仿真数据 |
+| `waveforms/01-bldc-control-chain/control_chain_summary.csv` | 关键指标摘要 |
+
+这不是完整电机模型。它的职责是把控制链的信号关系跑出来，让读者看到变量之间的先后关系。真实电机、电感、电流、转矩、反电动势和驱动器细节仍然放在 PLECS 完整模型里验证。
+
+## 仿真图 1：从目标速度到反馈速度
+
+![BLDC 控制链信号级仿真波形](../assets/01-bldc-control-chain/control_chain_waveforms.png)
+
+这张图要按四层读：
+
+| 子图 | 看什么 | 结论 |
+|---|---|---|
+| `target / actual / Hall feedback` | 目标速度阶跃后，实际速度上升，Hall 反馈以阶梯形式更新 | Hall 测速不是连续模拟量，它只在边沿出现后更新 |
+| `duty / load` | 负载扰动出现后，duty 继续抬升 | 速度控制层只通过 duty 改变能量 |
+| `step / Hall` | step 和 Hall 状态随电角度推进 | 位置反馈决定换相扇区 |
+| `high gates` | 高边桥臂被 PWM 切成脉冲 | PWM 改变输出能量，不改变六步换相顺序 |
+
+本次仿真的摘要数据：
+
+| 指标 | 数值 |
+|---|---:|
+| 最终目标速度 | 1200 rpm |
+| 最终实际速度 | 973.5 rpm |
+| 最终 Hall 反馈速度 | 961.5 rpm |
+| 最大 duty | 0.489 |
+| step 变化次数 | 147 |
+| Hall 边沿次数 | 148 |
+
+实际速度没有完全追上目标速度，是这个信号级模型故意保留的边界：本章只展示链路，不调 PI 参数，也不证明控制性能。
+
+## 仿真图 2：PWM 不改变换相顺序
+
+![BLDC gates 局部放大](../assets/01-bldc-control-chain/control_chain_gate_zoom.png)
+
+这张局部放大图只看一个问题：`PWM` 和 `换相` 是不是同一层职责。
+
+中间子图里，`AH base` 是基础换相命令；`AH pwm` 是叠加 PWM 后的高边 gate。可以看到基础换相命令决定 A 相高边是否属于当前导通相，PWM 只在它导通的窗口内切脉冲。
+
+所以后续文章会把职责拆开：
+
+| 层 | 负责什么 | 不负责什么 |
+|---|---|---|
+| 换相层 | 决定哪两相导通 | 不决定输出能量大小 |
+| PWM 层 | 根据 duty 调制能量 | 不改变当前处于哪一步换相 |
+| 速度层 | 根据速度误差输出 duty | 不直接操作 AH/BH/CH/AL/BL/CL |
+
 ## 为什么要先看数据流
 
 如果不先建数据流，常见问题会被混在一起：
@@ -119,9 +180,9 @@ Clock -> StepLogic(C-Script) -> Demux -> Scope
 
 ## 这个总览证明什么
 
-本篇证明的是：当前教程已经有一条可追踪的数据流，且仓库里的 Step 01 到 Step 08 能分别承接这条链上的关键职责。
+本篇证明的是：当前教程已经有一条可追踪的数据流，且仓库里的 Step 01 到 Step 08 能分别承接这条链上的关键职责。MATLAB 信号级仿真也证明了 `target_speed`、`duty`、`PWM gates`、`Hall` 和 `feedback speed` 之间存在可观测的先后关系。
 
-它不证明电机已经能在硬件上安全运行。硬件仍然需要驱动器死区、过流保护、欠压保护、软启动、堵转检测、故障状态机和上电检查。
+它不证明电机已经能在硬件上安全运行，也不证明这个简化控制器参数是最优的。硬件仍然需要驱动器死区、过流保护、欠压保护、软启动、堵转检测、故障状态机和上电检查。
 
 ## 如何复现
 
@@ -142,6 +203,12 @@ powershell -ExecutionPolicy Bypass -File .\learning_model\steps\generate_step_pl
 
 ```powershell
 python .\learning_model\steps\test_step_plecs_models.py
+```
+
+重新生成本篇 MATLAB 信号级仿真图：
+
+```powershell
+matlab -batch "run('D:\1codex\BLDC\scripts\ch01_control_chain_demo.m')"
 ```
 
 本篇复现说明见：

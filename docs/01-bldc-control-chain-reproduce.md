@@ -8,8 +8,8 @@
 |---|---|
 | 核心问题 | BLDC 六步控制链里，各层输入输出是什么 |
 | 本篇不解决 | 具体换相表、PI 参数、保护状态机、FOC |
-| 成功标准 | 能把 Step 01 到 Step 08 映射到控制链职责层 |
-| 主要证据 | `learning_model/steps/README.md` 和各 Step 目录 |
+| 成功标准 | 能把 Step 01 到 Step 08 映射到控制链职责层，并能生成本篇控制链波形图 |
+| 主要证据 | `learning_model/steps/README.md`、MATLAB 脚本、CSV 和 PNG 图 |
 
 ## 环境
 
@@ -18,8 +18,8 @@
 | 系统 | Windows 11 |
 | Shell | PowerShell |
 | 编码 | UTF-8 |
-| 必需工具 | PowerShell、Python |
-| 可选工具 | PLECS RPC 服务 |
+| 必需工具 | PowerShell、MATLAB |
+| 可选工具 | Python、PLECS RPC 服务 |
 
 ## 检查本篇文件
 
@@ -34,6 +34,43 @@ Get-Content -LiteralPath .\docs\01-bldc-control-chain-reproduce.md -Encoding UTF
 ```text
 能看到 target_speed -> speed_controller -> duty -> PWM -> gates -> inverter -> motor -> feedback 的数据流。
 ```
+
+## 运行本篇 MATLAB 信号级仿真
+
+```powershell
+Set-Location D:\1codex\BLDC
+matlab -batch "run('D:\1codex\BLDC\scripts\ch01_control_chain_demo.m')"
+```
+
+期望输出类似：
+
+```text
+Generated chapter 01 control-chain demo. final_actual_rpm=973.5 duty_max=0.489 hall_edges=148
+```
+
+生成文件：
+
+| 文件 | 用途 |
+|---|---|
+| `assets\01-bldc-control-chain\control_chain_waveforms.png` | 总览波形图 |
+| `assets\01-bldc-control-chain\control_chain_gate_zoom.png` | gate 局部放大图 |
+| `waveforms\01-bldc-control-chain\control_chain_demo.csv` | 全量数据 |
+| `waveforms\01-bldc-control-chain\control_chain_summary.csv` | 指标摘要 |
+
+检查摘要数据：
+
+```powershell
+Get-Content -LiteralPath .\waveforms\01-bldc-control-chain\control_chain_summary.csv -Encoding UTF8
+```
+
+当前期望摘要：
+
+```text
+target_rpm_final,actual_rpm_final,feedback_rpm_final,duty_max,step_change_count,hall_edge_count
+1200,973.518299004131,961.538461538465,0.488655589491532,147,148
+```
+
+这些数值用于说明控制链的信号先后关系，不用于评价真实电机性能。
 
 ## 检查 Step 目录
 
