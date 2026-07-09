@@ -10,8 +10,8 @@
 | 仿真工具 | PLECS 为主，MATLAB 用于计算、扫参和画图 |
 | 控制逻辑 | C 代码表达唯一职责层 |
 | 文章入口 | `blog/README.md` |
-| 最新章节 | `blog/01-bldc-control-chain.md` |
-| 复现说明 | `docs/01-bldc-control-chain-reproduce.md` |
+| 最新章节 | `blog/02-three-phase-bridge.md` |
+| 复现说明 | `docs/02-three-phase-bridge-reproduce.md` |
 | GitHub 仓库 | https://github.com/Old-Ding/BLDC |
 
 ## 工具分工
@@ -29,7 +29,7 @@
 |---:|---|---|
 | 00 | 为什么 BLDC 教程要从最小模型开始 | `blog/00-bldc-learning-route.md` |
 | 01 | BLDC 控制链总览 | `blog/01-bldc-control-chain.md` |
-| 02 | 三相桥的 6 个开关 | `learning_model/steps/step_01_three_phase_bridge` |
+| 02 | 三相桥的 6 个开关 | `blog/02-three-phase-bridge.md`、`scripts/ch02_three_phase_bridge_tests.m` |
 | 03 | 电角度、机械角度和极对数 | `learning_model/steps/step_06_speed_estimation` |
 | 04 | 六步换相表 | `learning_model/steps/step_02_six_step_table` |
 | 05 | 开环换相 | `learning_model/steps/step_03_open_loop_commutation` |
@@ -60,8 +60,15 @@ Clock -> StepLogic(C-Script) -> Demux -> Scope
 
 ```powershell
 Set-Location D:\1codex\BLDC
+matlab -batch "run('D:\1codex\BLDC\scripts\ch02_three_phase_bridge_tests.m')"
 powershell -ExecutionPolicy Bypass -File .\learning_model\steps\generate_step_plecs.ps1
 python .\learning_model\steps\test_step_plecs_models.py
+```
+
+第 02 篇当前期望输出：
+
+```text
+Generated chapter 02 three-phase bridge tests. scenarios=6 pass=6 figures=2
 ```
 
 运行 `test_step_plecs_models.py` 前需要先启动 PLECS RPC 服务。没有启动时，脚本会报告 `PLECS_RPC_NOT_READY`，这表示仿真服务未连接，不表示教程结构错误。
@@ -76,4 +83,4 @@ CSDN 发布前需要先满足三个条件：
 
 ## 当前工程状态
 
-当前仓库用于同步教程正文、复现说明和 PLECS 学习模型。CSDN 发布前优先使用 GitHub 公开文件作为配套材料入口。
+当前仓库用于同步教程正文、复现说明、MATLAB 实验包和 PLECS 学习模型。第 02 篇已经包含脚本、CSV、PNG 和测试报告；CSDN 发布前优先使用 GitHub 公开文件作为配套材料入口。
