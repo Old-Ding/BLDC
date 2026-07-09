@@ -1,0 +1,103 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1120" height="720" viewBox="0 0 1120 720">
+  <rect width="1120" height="720" fill="#fbfbf0"/>
+  <style>
+    text { font-family: "Microsoft YaHei", "Segoe UI", Arial, sans-serif; fill: #222; }
+    .title { font-size: 30px; font-weight: 700; }
+    .label { font-size: 20px; font-weight: 600; }
+    .small { font-size: 16px; }
+    .note { font-size: 18px; }
+    .wire { stroke: #111; stroke-width: 3; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+    .phase { stroke: #0a6fb5; stroke-width: 4; fill: none; stroke-linecap: round; }
+    .gate { stroke: #2b9b43; stroke-width: 2.2; fill: none; stroke-dasharray: 7 6; }
+    .box { fill: #fffef5; stroke: #111; stroke-width: 2.2; rx: 8; }
+    .switch { fill: #fff; stroke: #111; stroke-width: 2.2; }
+    .diode { fill: none; stroke: #111; stroke-width: 2; }
+    .on { fill: #e8f6ec; stroke: #2b9b43; stroke-width: 2.5; }
+  </style>
+
+  <text x="42" y="52" class="title">三相两电平逆变器拓扑（2-Level IGBT Conv. 的展开图）</text>
+  <text x="42" y="88" class="note">DC+ 和 DC- 是直流母线；A/B/C 三个桥臂各有一个上管和一个下管；中点接电机三相。</text>
+
+  <line x1="110" y1="130" x2="990" y2="130" class="wire"/>
+  <line x1="110" y1="590" x2="990" y2="590" class="wire"/>
+  <text x="42" y="137" class="label">DC+</text>
+  <text x="42" y="598" class="label">DC-</text>
+  <text x="980" y="122" class="small">母线正</text>
+  <text x="980" y="614" class="small">母线负</text>
+
+  <!-- Phase A leg -->
+  <g transform="translate(240,0)">
+    <text x="-18" y="122" class="label">A 相桥臂</text>
+    <line x1="50" y1="130" x2="50" y2="205" class="wire"/>
+    <rect x="12" y="205" width="76" height="98" class="switch"/>
+    <text x="21" y="237" class="small">A 上</text>
+    <text x="17" y="263" class="small">S_AH</text>
+    <path d="M72 222 L72 282 M60 252 L72 240 L84 252 Z M60 264 L84 264" class="diode"/>
+    <line x1="50" y1="303" x2="50" y2="365" class="wire"/>
+    <circle cx="50" cy="365" r="7" fill="#0a6fb5"/>
+    <line x1="50" y1="365" x2="158" y2="365" class="phase"/>
+    <text x="166" y="372" class="label">U / A</text>
+    <line x1="50" y1="365" x2="50" y2="425" class="wire"/>
+    <rect x="12" y="425" width="76" height="98" class="switch"/>
+    <text x="21" y="457" class="small">A 下</text>
+    <text x="18" y="483" class="small">S_AL</text>
+    <path d="M72 442 L72 502 M60 472 L72 460 L84 472 Z M60 484 L84 484" class="diode"/>
+    <line x1="50" y1="523" x2="50" y2="590" class="wire"/>
+    <line x1="-70" y1="254" x2="12" y2="254" class="gate"/>
+    <line x1="-70" y1="474" x2="12" y2="474" class="gate"/>
+    <text x="-138" y="260" class="small">Gate_AH</text>
+    <text x="-138" y="480" class="small">Gate_AL</text>
+  </g>
+
+  <!-- Phase B leg -->
+  <g transform="translate(500,0)">
+    <text x="-18" y="122" class="label">B 相桥臂</text>
+    <line x1="50" y1="130" x2="50" y2="205" class="wire"/>
+    <rect x="12" y="205" width="76" height="98" class="switch"/>
+    <text x="21" y="237" class="small">B 上</text>
+    <text x="17" y="263" class="small">S_BH</text>
+    <path d="M72 222 L72 282 M60 252 L72 240 L84 252 Z M60 264 L84 264" class="diode"/>
+    <line x1="50" y1="303" x2="50" y2="365" class="wire"/>
+    <circle cx="50" cy="365" r="7" fill="#0a6fb5"/>
+    <line x1="50" y1="365" x2="158" y2="365" class="phase"/>
+    <text x="166" y="372" class="label">V / B</text>
+    <line x1="50" y1="365" x2="50" y2="425" class="wire"/>
+    <rect x="12" y="425" width="76" height="98" class="switch"/>
+    <text x="21" y="457" class="small">B 下</text>
+    <text x="18" y="483" class="small">S_BL</text>
+    <path d="M72 442 L72 502 M60 472 L72 460 L84 472 Z M60 484 L84 484" class="diode"/>
+    <line x1="50" y1="523" x2="50" y2="590" class="wire"/>
+    <line x1="-70" y1="254" x2="12" y2="254" class="gate"/>
+    <line x1="-70" y1="474" x2="12" y2="474" class="gate"/>
+    <text x="-138" y="260" class="small">Gate_BH</text>
+    <text x="-138" y="480" class="small">Gate_BL</text>
+  </g>
+
+  <!-- Phase C leg -->
+  <g transform="translate(760,0)">
+    <text x="-18" y="122" class="label">C 相桥臂</text>
+    <line x1="50" y1="130" x2="50" y2="205" class="wire"/>
+    <rect x="12" y="205" width="76" height="98" class="switch"/>
+    <text x="21" y="237" class="small">C 上</text>
+    <text x="17" y="263" class="small">S_CH</text>
+    <path d="M72 222 L72 282 M60 252 L72 240 L84 252 Z M60 264 L84 264" class="diode"/>
+    <line x1="50" y1="303" x2="50" y2="365" class="wire"/>
+    <circle cx="50" cy="365" r="7" fill="#0a6fb5"/>
+    <line x1="50" y1="365" x2="158" y2="365" class="phase"/>
+    <text x="166" y="372" class="label">W / C</text>
+    <line x1="50" y1="365" x2="50" y2="425" class="wire"/>
+    <rect x="12" y="425" width="76" height="98" class="switch"/>
+    <text x="21" y="457" class="small">C 下</text>
+    <text x="18" y="483" class="small">S_CL</text>
+    <path d="M72 442 L72 502 M60 472 L72 460 L84 472 Z M60 484 L84 484" class="diode"/>
+    <line x1="50" y1="523" x2="50" y2="590" class="wire"/>
+    <line x1="-70" y1="254" x2="12" y2="254" class="gate"/>
+    <line x1="-70" y1="474" x2="12" y2="474" class="gate"/>
+    <text x="-138" y="260" class="small">Gate_CH</text>
+    <text x="-138" y="480" class="small">Gate_CL</text>
+  </g>
+
+  <rect x="42" y="628" width="1038" height="62" class="box"/>
+  <text x="60" y="655" class="note">六步换相的核心：每一步只导通两个开关，例如 A 上 + B 下，第三相悬空。</text>
+  <text x="60" y="681" class="note">绝不能让同一相的上管和下管同时导通，否则 DC+ 会直接短到 DC-。</text>
+</svg>

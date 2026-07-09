@@ -1,0 +1,661 @@
+Plecs {
+  Name          "bldc_simple"
+  Version       "5.0"
+  CircuitModel  "ContStateSpace"
+  StartTime     "0.0"
+  TimeSpan      "0.5"
+  Timeout       ""
+  Solver        "auto"
+  MaxStep       "1e-5"
+  InitStep      "-1"
+  FixedStep     "1e-3"
+  Refine        "1"
+  ZCStepSize    "1e-9"
+  RelTol        "1e-3"
+  AbsTol        "-1"
+  TurnOnThreshold "0"
+  NonIdealSwitchResistance "1"
+  SyncFixedStepTasks "2"
+  UseSingleCommonBaseRate "2"
+  LossVariableLimitExceededMsg "3"
+  NegativeSwitchLossMsg "3"
+  DivisionByZeroMsg "3"
+  DatatypeOverflowMsg "3"
+  DatatypeInheritanceConflictMsg "2"
+  ContSampleTimeConflictMsg "2"
+  StiffnessDetectionMsg "2"
+  MaxConsecutiveZCs "1000"
+  AlgebraicLoopWithStateMachineMsg "3"
+  AssertionAction "1"
+  FixedPointDatatypeOverride "1"
+  InitializationCommands ""
+  InitialState  "1"
+  SystemState   ""
+  JacobianComputation "2"
+  TaskingMode   "1"
+  TaskConfigurations ""
+  CodeGenParameterInlining "2"
+  CodeGenFloatingPointFormat "2"
+  CodeGenAbsTimeUsageMsg "3"
+  CodeGenBaseName ""
+  CodeGenOutputDir ""
+  CodeGenExtraOpts ""
+  CodeGenTarget "Generic"
+  CodeGenTargetSettings ""
+  ExtendedMatrixPrecision "1"
+  MatrixSignificanceCheck "2"
+  RemoveUnusedStateSpaceOutputs "2"
+  EnableStateSpaceSplitting "2"
+  DisplayStateSpaceSplitting "1"
+  DiscretizationMethod "2"
+  ExternalModeSettings ""
+  AlgebraicLoopMethod "1"
+  AlgebraicLoopTolerance "1e-6"
+  ScriptsDialogGeometry ""
+  ScriptsDialogSplitterPos "0"
+  MixedSignalSolverBypassOperatingPoint "1"
+  MixedSignalSolverInitialConditions "2"
+  MixedSignalSolverMaxNewtonIterations "25"
+  MixedSignalSolverNumThreads "-1"
+  OperatingPointMaxNewtonIterations "50"
+  OperatingPointRelativeNewtonTolerance "1e-3"
+  OperatingPointAbsoluteNewtonTolerance "1e-12"
+  OperatingPointNodalVoltageNewtonTolerance "1e-6"
+  SpiceTemperature "27"
+  NetlistParserDetails "2"
+  InvalidNetlistFunctionEvaluationMsg "1"
+  IncompatibleInitialConditionMsg "2"
+  Schematic {
+    Location      [0, 26; 1920, 1027]
+    ZoomFactor    1
+    SliderPosition [0, 0]
+    ShowBrowser   off
+    BrowserWidth  100
+    Component {
+      Type          DCVoltageSource
+      Name          "直流电源"
+      Show          on
+      Position      [150, 200]
+      Direction     down
+      Flipped       on
+      LabelPosition east
+      Parameter {
+        Variable      "V"
+        Value         "48"
+        Show          on
+      }
+    }
+    Component {
+      Type          Ground
+      Name          "Ground"
+      Show          off
+      Position      [150, 280]
+      Direction     up
+      Flipped       off
+    }
+    Component {
+      Type          Reference
+      SrcComponent  "Components/Electrical/Power Modules/3-Phase Bridge"
+      Name          "三相逆变器"
+      Show          on
+      Position      [400, 200]
+      Direction     up
+      Flipped       off
+      LabelPosition south
+      Frame         [-35, -35; 35, 35]
+      Parameter {
+        Variable      "SwitchType"
+        Value         "1"
+        Show          off
+      }
+      Parameter {
+        Variable      "Ron"
+        Value         "0.01"
+        Show          off
+      }
+      Parameter {
+        Variable      "Vf"
+        Value         "0"
+        Show          off
+      }
+      Parameter {
+        Variable      "deadTime"
+        Value         "1e-6"
+        Show          off
+      }
+      Terminal {
+        Type          Port
+        Position      [-40, -30]
+        Direction     left
+      }
+      Terminal {
+        Type          Port
+        Position      [-40, 30]
+        Direction     left
+      }
+      Terminal {
+        Type          Port
+        Position      [40, -15]
+        Direction     right
+      }
+      Terminal {
+        Type          Port
+        Position      [40, 0]
+        Direction     right
+      }
+      Terminal {
+        Type          Port
+        Position      [40, 15]
+        Direction     right
+      }
+      Terminal {
+        Type          Input
+        Position      [-25, -30]
+        Direction     left
+      }
+      Terminal {
+        Type          Input
+        Position      [-10, -30]
+        Direction     left
+      }
+      Terminal {
+        Type          Input
+        Position      [5, -30]
+        Direction     left
+      }
+      Terminal {
+        Type          Input
+        Position      [-25, 30]
+        Direction     left
+      }
+      Terminal {
+        Type          Input
+        Position      [-10, 30]
+        Direction     left
+      }
+      Terminal {
+        Type          Input
+        Position      [5, 30]
+        Direction     left
+      }
+    }
+    Component {
+      Type          PermanentMagnetSynchronousMachine
+      Name          "BLDC电机"
+      Show          on
+      Position      [650, 200]
+      Direction     right
+      Flipped       off
+      LabelPosition south
+      Parameter {
+        Variable      "p"
+        Value         "4"
+        Show          on
+      }
+      Parameter {
+        Variable      "R"
+        Value         "0.5"
+        Show          off
+      }
+      Parameter {
+        Variable      "L"
+        Value         "[1e-3 1e-3]"
+        Show          off
+      }
+      Parameter {
+        Variable      "phi"
+        Value         "0.05"
+        Show          off
+      }
+      Parameter {
+        Variable      "BackEMFWaveform"
+        Value         "2"
+        Show          on
+      }
+      Parameter {
+        Variable      "J"
+        Value         "1e-4"
+        Show          off
+      }
+      Parameter {
+        Variable      "F"
+        Value         "1e-4"
+        Show          off
+      }
+      Parameter {
+        Variable      "TL"
+        Value         "0"
+        Show          on
+      }
+      Parameter {
+        Variable      "wm0"
+        Value         "0"
+        Show          off
+      }
+      Parameter {
+        Variable      "thm0"
+        Value         "0"
+        Show          off
+      }
+    }
+    Component {
+      Type          CScript
+      Name          "换相逻辑"
+      Show          on
+      Position      [400, 400]
+      Direction     up
+      Flipped       off
+      LabelPosition south
+      Frame         [-30, -30; 30, 30]
+      NumInputs     "3"
+      NumOutputs    "6"
+      NumContStates "0"
+      NumDiscStates "0"
+      NumZCSignals  "0"
+      DirectFeedthrough "1"
+      Ts            "0"
+      Parameters    ""
+      LangStandard  "2"
+      SourceCode    "// PLECS C-Script: BLDC Hall six-step commutation\n// Gate order: A_high, B_high, C_high, A_low, B_low, C_low\nint hall = (int)(4.0*in[2] + 2.0*in[1] + in[0]);\n\nout[0]=0.0; out[1]=0.0; out[2]=0.0;\nout[3]=0.0; out[4]=0.0; out[5]=0.0;\n\nswitch(hall) {\n    case 5: out[0]=1.0; out[4]=1.0; break; // A+ B-\n    case 1: out[0]=1.0; out[5]=1.0; break; // A+ C-\n    case 3: out[1]=1.0; out[5]=1.0; break; // B+ C-\n    case 2: out[1]=1.0; out[3]=1.0; break; // B+ A-\n    case 6: out[2]=1.0; out[3]=1.0; break; // C+ A-\n    case 4: out[2]=1.0; out[4]=1.0; break; // C+ B-\n    default: break;\n}\n"
+    }
+    Component {
+      Type          SignalPulse
+      Name          "PWM生成器"
+      Show          on
+      Position      [250, 350]
+      Direction     right
+      Flipped       off
+      LabelPosition south
+      Parameter {
+        Variable      "Frequency"
+        Value         "20000"
+        Show          on
+      }
+      Parameter {
+        Variable      "Duty"
+        Value         "0.5"
+        Show          on
+      }
+      Parameter {
+        Variable      "Amplitude"
+        Value         "1"
+        Show          off
+      }
+    }
+    Component {
+      Type          Product
+      Name          "Q1调制"
+      Show          off
+      Position      [320, 290]
+      Direction     right
+      Flipped       off
+    }
+    Component {
+      Type          Product
+      Name          "Q3调制"
+      Show          off
+      Position      [340, 290]
+      Direction     right
+      Flipped       off
+    }
+    Component {
+      Type          Product
+      Name          "Q5调制"
+      Show          off
+      Position      [360, 290]
+      Direction     right
+      Flipped       off
+    }
+    Component {
+      Type          Product
+      Name          "Q4调制"
+      Show          off
+      Position      [320, 310]
+      Direction     right
+      Flipped       off
+    }
+    Component {
+      Type          Product
+      Name          "Q6调制"
+      Show          off
+      Position      [340, 310]
+      Direction     right
+      Flipped       off
+    }
+    Component {
+      Type          Product
+      Name          "Q2调制"
+      Show          off
+      Position      [360, 310]
+      Direction     right
+      Flipped       off
+    }
+    Component {
+      Type          Probe
+      Name          "转速"
+      Show          on
+      Position      [750, 150]
+      Direction     right
+      Flipped       off
+    }
+    Component {
+      Type          Probe
+      Name          "HallA"
+      Show          on
+      Position      [750, 250]
+      Direction     right
+      Flipped       off
+    }
+    Component {
+      Type          Probe
+      Name          "HallB"
+      Show          on
+      Position      [750, 270]
+      Direction     right
+      Flipped       off
+    }
+    Component {
+      Type          Probe
+      Name          "HallC"
+      Show          on
+      Position      [750, 290]
+      Direction     right
+      Flipped       off
+    }
+    Component {
+      Type          Scope
+      Name          "示波器"
+      Show          on
+      Position      [850, 200]
+      Direction     up
+      Flipped       off
+      LabelPosition south
+      Locations     [0, 0; 600, 400]
+      NumInputs     "7"
+    }
+    Connection {
+      Type          Wire
+      SrcComponent  "直流电源"
+      SrcTerminal   1
+      Points        [150, 150; 360, 150]
+      DstComponent  "三相逆变器"
+      DstTerminal   1
+    }
+    Connection {
+      Type          Wire
+      SrcComponent  "直流电源"
+      SrcTerminal   2
+      DstComponent  "Ground"
+      DstTerminal   1
+    }
+    Connection {
+      Type          Wire
+      SrcComponent  "Ground"
+      SrcTerminal   1
+      Points        [150, 250; 360, 250]
+      DstComponent  "三相逆变器"
+      DstTerminal   2
+    }
+    Connection {
+      Type          Wire
+      SrcComponent  "三相逆变器"
+      SrcTerminal   3
+      Points        [550, 185]
+      DstComponent  "BLDC电机"
+      DstTerminal   1
+    }
+    Connection {
+      Type          Wire
+      SrcComponent  "三相逆变器"
+      SrcTerminal   4
+      Points        [550, 200]
+      DstComponent  "BLDC电机"
+      DstTerminal   2
+    }
+    Connection {
+      Type          Wire
+      SrcComponent  "三相逆变器"
+      SrcTerminal   5
+      Points        [550, 215]
+      DstComponent  "BLDC电机"
+      DstTerminal   3
+    }
+    Connection {
+      Type          Signal
+      SrcComponent  "BLDC电机"
+      SrcTerminal   10
+      Points        [720, 250]
+      Branch {
+        DstComponent  "HallA"
+        DstTerminal   1
+      }
+      Branch {
+        Points        [720, 480; 350, 480]
+        DstComponent  "换相逻辑"
+        DstTerminal   1
+      }
+    }
+    Connection {
+      Type          Signal
+      SrcComponent  "BLDC电机"
+      SrcTerminal   11
+      Points        [730, 270]
+      Branch {
+        DstComponent  "HallB"
+        DstTerminal   1
+      }
+      Branch {
+        Points        [730, 490; 360, 490]
+        DstComponent  "换相逻辑"
+        DstTerminal   2
+      }
+    }
+    Connection {
+      Type          Signal
+      SrcComponent  "BLDC电机"
+      SrcTerminal   12
+      Points        [740, 290]
+      Branch {
+        DstComponent  "HallC"
+        DstTerminal   1
+      }
+      Branch {
+        Points        [740, 500; 370, 500]
+        DstComponent  "换相逻辑"
+        DstTerminal   3
+      }
+    }
+    Connection {
+      Type          Signal
+      SrcComponent  "PWM生成器"
+      SrcTerminal   1
+      Points        [280, 350; 280, 300]
+      Branch {
+        DstComponent  "Q1调制"
+        DstTerminal   1
+      }
+      Branch {
+        DstComponent  "Q3调制"
+        DstTerminal   1
+      }
+      Branch {
+        DstComponent  "Q5调制"
+        DstTerminal   1
+      }
+      Branch {
+        Points        [280, 320]
+        Branch {
+          DstComponent  "Q4调制"
+          DstTerminal   1
+        }
+        Branch {
+          DstComponent  "Q6调制"
+          DstTerminal   1
+        }
+        Branch {
+          DstComponent  "Q2调制"
+          DstTerminal   1
+        }
+      }
+    }
+    Connection {
+      Type          Signal
+      SrcComponent  "换相逻辑"
+      SrcTerminal   4
+      Points        [310, 385; 310, 295]
+      DstComponent  "Q1调制"
+      DstTerminal   2
+    }
+    Connection {
+      Type          Signal
+      SrcComponent  "换相逻辑"
+      SrcTerminal   5
+      Points        [320, 390; 330, 390; 330, 295]
+      DstComponent  "Q3调制"
+      DstTerminal   2
+    }
+    Connection {
+      Type          Signal
+      SrcComponent  "换相逻辑"
+      SrcTerminal   6
+      Points        [330, 395; 350, 395; 350, 295]
+      DstComponent  "Q5调制"
+      DstTerminal   2
+    }
+    Connection {
+      Type          Signal
+      SrcComponent  "换相逻辑"
+      SrcTerminal   7
+      Points        [310, 415; 310, 315]
+      DstComponent  "Q4调制"
+      DstTerminal   2
+    }
+    Connection {
+      Type          Signal
+      SrcComponent  "换相逻辑"
+      SrcTerminal   8
+      Points        [320, 420; 330, 420; 330, 315]
+      DstComponent  "Q6调制"
+      DstTerminal   2
+    }
+    Connection {
+      Type          Signal
+      SrcComponent  "换相逻辑"
+      SrcTerminal   9
+      Points        [330, 425; 350, 425; 350, 315]
+      DstComponent  "Q2调制"
+      DstTerminal   2
+    }
+    Connection {
+      Type          Signal
+      SrcComponent  "Q1调制"
+      SrcTerminal   3
+      Points        [325, 290; 325, 170]
+      DstComponent  "三相逆变器"
+      DstTerminal   6
+    }
+    Connection {
+      Type          Signal
+      SrcComponent  "Q3调制"
+      SrcTerminal   3
+      Points        [345, 290; 345, 170]
+      DstComponent  "三相逆变器"
+      DstTerminal   7
+    }
+    Connection {
+      Type          Signal
+      SrcComponent  "Q5调制"
+      SrcTerminal   3
+      Points        [365, 290; 365, 170]
+      DstComponent  "三相逆变器"
+      DstTerminal   8
+    }
+    Connection {
+      Type          Signal
+      SrcComponent  "Q4调制"
+      SrcTerminal   3
+      Points        [325, 310; 325, 230]
+      DstComponent  "三相逆变器"
+      DstTerminal   9
+    }
+    Connection {
+      Type          Signal
+      SrcComponent  "Q6调制"
+      SrcTerminal   3
+      Points        [345, 310; 345, 230]
+      DstComponent  "三相逆变器"
+      DstTerminal   10
+    }
+    Connection {
+      Type          Signal
+      SrcComponent  "Q2调制"
+      SrcTerminal   3
+      Points        [365, 310; 365, 230]
+      DstComponent  "三相逆变器"
+      DstTerminal   11
+    }
+    Connection {
+      Type          Signal
+      SrcComponent  "BLDC电机"
+      SrcTerminal   5
+      DstComponent  "转速"
+      DstTerminal   1
+    }
+    Connection {
+      Type          Signal
+      SrcComponent  "转速"
+      SrcTerminal   1
+      Points        [800, 150]
+      DstComponent  "示波器"
+      DstTerminal   1
+    }
+    Connection {
+      Type          Signal
+      SrcComponent  "HallA"
+      SrcTerminal   1
+      Points        [800, 250; 800, 165]
+      DstComponent  "示波器"
+      DstTerminal   2
+    }
+    Connection {
+      Type          Signal
+      SrcComponent  "HallB"
+      SrcTerminal   1
+      Points        [810, 270; 810, 175]
+      DstComponent  "示波器"
+      DstTerminal   3
+    }
+    Connection {
+      Type          Signal
+      SrcComponent  "HallC"
+      SrcTerminal   1
+      Points        [820, 290; 820, 185]
+      DstComponent  "示波器"
+      DstTerminal   4
+    }
+    Connection {
+      Type          Signal
+      SrcComponent  "BLDC电机"
+      SrcTerminal   7
+      Points        [700, 185; 700, 120; 830, 120; 830, 195]
+      DstComponent  "示波器"
+      DstTerminal   5
+    }
+    Connection {
+      Type          Signal
+      SrcComponent  "BLDC电机"
+      SrcTerminal   8
+      Points        [710, 200; 710, 110; 840, 110; 840, 205]
+      DstComponent  "示波器"
+      DstTerminal   6
+    }
+    Connection {
+      Type          Signal
+      SrcComponent  "BLDC电机"
+      SrcTerminal   9
+      Points        [700, 215; 700, 100; 850, 100; 850, 215]
+      DstComponent  "示波器"
+      DstTerminal   7
+    }
+  }
+}
