@@ -6,9 +6,7 @@
 
 配套仓库：
 
-```text
-https://github.com/Old-Ding/BLDC
-```
+[https://github.com/Old-Ding/BLDC](https://github.com/Old-Ding/BLDC)
 
 ## 本系列的主线
 
@@ -86,9 +84,7 @@ learning_model/steps
 
 GitHub 对应目录：
 
-```text
-https://github.com/Old-Ding/BLDC/tree/main/learning_model/steps
-```
+[https://github.com/Old-Ding/BLDC/tree/main/learning_model/steps](https://github.com/Old-Ding/BLDC/tree/main/learning_model/steps)
 
 其中 Step 01 到 Step 07 是信号级 PLECS 教学模型，统一结构是：
 

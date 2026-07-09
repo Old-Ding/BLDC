@@ -4,9 +4,7 @@
 
 配套仓库：
 
-```text
-https://github.com/Old-Ding/BLDC
-```
+[https://github.com/Old-Ding/BLDC](https://github.com/Old-Ding/BLDC)
 
 ## 环境
 
