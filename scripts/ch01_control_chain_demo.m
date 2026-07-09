@@ -7,11 +7,15 @@ clear; clc;
 repoRoot = fileparts(fileparts(mfilename("fullpath")));
 assetDir = fullfile(repoRoot, "assets", "01-bldc-control-chain");
 waveformDir = fullfile(repoRoot, "waveforms", "01-bldc-control-chain");
+reportDir = fullfile(repoRoot, "reports");
 if ~exist(assetDir, "dir")
     mkdir(assetDir);
 end
 if ~exist(waveformDir, "dir")
     mkdir(waveformDir);
+end
+if ~exist(reportDir, "dir")
+    mkdir(reportDir);
 end
 
 dt = 1e-4;
@@ -40,7 +44,7 @@ alPwm = zeros(n, 1); blPwm = zeros(n, 1); clPwm = zeros(n, 1);
 
 electricalEdgeCount = 0;
 lastEdgeTime = NaN;
-lastStep = 0;
+lastStep = NaN;
 mechanicalRev = 0;
 integralView = 0;
 feedbackHold = 0;
@@ -59,7 +63,9 @@ for k = 1:n
     stepNow = mod(rawStep, 6);
     electricalStep(k) = stepNow;
 
-    if k == 1 || stepNow ~= lastStep
+    if isnan(lastStep)
+        lastStep = stepNow;
+    elseif stepNow ~= lastStep
         electricalEdgeCount = electricalEdgeCount + 1;
         if ~isnan(lastEdgeTime)
             edgePeriod = t(k) - lastEdgeTime;
@@ -101,6 +107,8 @@ summary = array2table([ ...
     "VariableNames", ["target_rpm_final", "actual_rpm_final", "feedback_rpm_final", ...
     "duty_max", "step_change_count", "hall_edge_count"]);
 writetable(summary, fullfile(waveformDir, "control_chain_summary.csv"));
+writeReport(fullfile(reportDir, "01-bldc-control-chain-test_report.md"), ...
+    targetRpm, actualRpm, feedbackRpm, duty, electricalStep, electricalEdgeCount, dt, tEnd, polePairs, pwmFreq);
 
 fig1 = figure("Color", "w", "Position", [100, 100, 1100, 800]);
 tiledlayout(4, 1, "TileSpacing", "compact", "Padding", "compact");
@@ -199,4 +207,33 @@ end
 function hall = hallForStep(step)
     hallSeq = [5, 1, 3, 2, 6, 4];
     hall = hallSeq(step + 1);
+end
+
+function writeReport(reportPath, targetRpm, actualRpm, feedbackRpm, duty, electricalStep, electricalEdgeCount, dt, tEnd, polePairs, pwmFreq)
+    fid = fopen(reportPath, "w", "n", "UTF-8");
+    cleanup = onCleanup(@() fclose(fid));
+
+    fprintf(fid, "# 第 01 篇测试报告：BLDC 控制链信号级仿真\n\n");
+    fprintf(fid, "生成时间：%s\n\n", string(datetime("now", "Format", "yyyy-MM-dd HH:mm:ss")));
+
+    fprintf(fid, "## 参数摘要\n\n");
+    fprintf(fid, "- 采样周期：%.0f us\n", dt * 1e6);
+    fprintf(fid, "- 仿真时长：%.3f s\n", tEnd);
+    fprintf(fid, "- 极对数：%d\n", polePairs);
+    fprintf(fid, "- PWM 频率：%.0f Hz\n", pwmFreq);
+    fprintf(fid, "- 脚本：`scripts/ch01_control_chain_demo.m`\n\n");
+
+    fprintf(fid, "## 指标摘要\n\n");
+    fprintf(fid, "| 指标 | 数值 |\n");
+    fprintf(fid, "|---|---:|\n");
+    fprintf(fid, "| 最终目标速度 / rpm | %.1f |\n", targetRpm(end));
+    fprintf(fid, "| 最终实际速度 / rpm | %.1f |\n", actualRpm(end));
+    fprintf(fid, "| 最终 Hall 反馈速度 / rpm | %.1f |\n", feedbackRpm(end));
+    fprintf(fid, "| 最大 duty | %.3f |\n", max(duty));
+    fprintf(fid, "| step 变化次数 | %d |\n", sum(abs(diff(electricalStep)) > 0));
+    fprintf(fid, "| Hall 边沿计数 | %d |\n\n", electricalEdgeCount);
+
+    fprintf(fid, "## 结果解释\n\n");
+    fprintf(fid, "本报告是信号级教学仿真，用于确认 target、feedback、duty、step、Hall 和 PWM gates 的先后关系。");
+    fprintf(fid, "它不评价电机参数、机械负载、驱动器死区或硬件控制性能。\n");
 end

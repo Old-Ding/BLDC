@@ -33,14 +33,15 @@ target_speed
 scripts/ch01_control_chain_demo.m
 ```
 
-它生成两张图和两份数据：
+它生成两张图、两份数据和一份测试报告：
 
 | 文件 | 作用 |
 |---|---|
-| `assets/01-bldc-control-chain/control_chain_waveforms.png` | 总览目标速度、实际速度、Hall 反馈、duty、step、Hall 和高边 PWM |
-| `assets/01-bldc-control-chain/control_chain_gate_zoom.png` | 放大观察换相 step、Hall 状态、基础 gate 和 PWM 后 gate |
-| `waveforms/01-bldc-control-chain/control_chain_demo.csv` | 全量仿真数据 |
-| `waveforms/01-bldc-control-chain/control_chain_summary.csv` | 关键指标摘要 |
+| [assets/01-bldc-control-chain/control_chain_waveforms.png](../assets/01-bldc-control-chain/control_chain_waveforms.png) | 总览目标速度、实际速度、Hall 反馈、duty、step、Hall 和高边 PWM |
+| [assets/01-bldc-control-chain/control_chain_gate_zoom.png](../assets/01-bldc-control-chain/control_chain_gate_zoom.png) | 放大观察换相 step、Hall 状态、基础 gate 和 PWM 后 gate |
+| [waveforms/01-bldc-control-chain/control_chain_demo.csv](../waveforms/01-bldc-control-chain/control_chain_demo.csv) | 全量仿真数据 |
+| [waveforms/01-bldc-control-chain/control_chain_summary.csv](../waveforms/01-bldc-control-chain/control_chain_summary.csv) | 关键指标摘要 |
+| [reports/01-bldc-control-chain-test_report.md](../reports/01-bldc-control-chain-test_report.md) | 参数、指标和模型边界说明 |
 
 这不是完整电机模型。它的职责是把控制链的信号关系跑出来，让读者看到变量之间的先后关系。真实电机、电感、电流、转矩、反电动势和驱动器细节仍然放在 PLECS 完整模型里验证。
 
@@ -62,11 +63,11 @@ scripts/ch01_control_chain_demo.m
 | 指标 | 数值 |
 |---|---:|
 | 最终目标速度 | 1200 rpm |
-| 最终实际速度 | 973.5 rpm |
+| 最终实际速度 | 973.7 rpm |
 | 最终 Hall 反馈速度 | 961.5 rpm |
-| 最大 duty | 0.489 |
+| 最大 duty | 0.505 |
 | step 变化次数 | 147 |
-| Hall 边沿次数 | 148 |
+| Hall 边沿次数 | 147 |
 
 实际速度没有完全追上目标速度，是这个信号级模型故意保留的边界：本章只展示链路，不调 PI 参数，也不证明控制性能。
 

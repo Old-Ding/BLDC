@@ -9,7 +9,7 @@
 | 核心问题 | BLDC 六步控制链里，各层输入输出是什么 |
 | 本篇不解决 | 具体换相表、PI 参数、保护状态机、FOC |
 | 成功标准 | 能把 Step 01 到 Step 08 映射到控制链职责层，并能生成本篇控制链波形图 |
-| 主要证据 | `learning_model/steps/README.md`、MATLAB 脚本、CSV 和 PNG 图 |
+| 主要证据 | `learning_model/steps/README.md`、MATLAB 脚本、CSV、PNG 图和测试报告 |
 
 ## 环境
 
@@ -45,7 +45,7 @@ matlab -batch "run('D:\1codex\BLDC\scripts\ch01_control_chain_demo.m')"
 期望输出类似：
 
 ```text
-Generated chapter 01 control-chain demo. final_actual_rpm=973.5 duty_max=0.489 hall_edges=148
+Generated chapter 01 control-chain demo. final_actual_rpm=973.7 duty_max=0.505 hall_edges=147
 ```
 
 生成文件：
@@ -56,6 +56,7 @@ Generated chapter 01 control-chain demo. final_actual_rpm=973.5 duty_max=0.489 h
 | `assets\01-bldc-control-chain\control_chain_gate_zoom.png` | gate 局部放大图 |
 | `waveforms\01-bldc-control-chain\control_chain_demo.csv` | 全量数据 |
 | `waveforms\01-bldc-control-chain\control_chain_summary.csv` | 指标摘要 |
+| `reports\01-bldc-control-chain-test_report.md` | 参数、指标和模型边界说明 |
 
 检查摘要数据：
 
@@ -67,7 +68,7 @@ Get-Content -LiteralPath .\waveforms\01-bldc-control-chain\control_chain_summary
 
 ```text
 target_rpm_final,actual_rpm_final,feedback_rpm_final,duty_max,step_change_count,hall_edge_count
-1200,973.518299004131,961.538461538465,0.488655589491532,147,148
+1200,973.706799283726,961.538461538465,0.50544,147,147
 ```
 
 这些数值用于说明控制链的信号先后关系，不用于评价真实电机性能。
