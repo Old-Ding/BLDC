@@ -9,8 +9,9 @@
 | 教程主线 | 第一阶段：六步 BLDC 最小闭环 |
 | 仿真工具 | PLECS 为主，MATLAB 用于计算、扫参和画图 |
 | 控制逻辑 | C 代码表达唯一职责层 |
-| 文章入口 | `blog/00-bldc-learning-route.md` |
-| 复现说明 | `docs/00-bldc-learning-route-reproduce.md` |
+| 文章入口 | `blog/README.md` |
+| 最新章节 | `blog/01-bldc-control-chain.md` |
+| 复现说明 | `docs/01-bldc-control-chain-reproduce.md` |
 | GitHub 仓库 | https://github.com/Old-Ding/BLDC |
 
 ## 工具分工
@@ -27,7 +28,7 @@
 | 篇章 | 标题 | 对应材料 |
 |---:|---|---|
 | 00 | 为什么 BLDC 教程要从最小模型开始 | `blog/00-bldc-learning-route.md` |
-| 01 | BLDC 控制链总览 | `learning_model/steps/README.md` |
+| 01 | BLDC 控制链总览 | `blog/01-bldc-control-chain.md` |
 | 02 | 三相桥的 6 个开关 | `learning_model/steps/step_01_three_phase_bridge` |
 | 03 | 电角度、机械角度和极对数 | `learning_model/steps/step_06_speed_estimation` |
 | 04 | 六步换相表 | `learning_model/steps/step_02_six_step_table` |
