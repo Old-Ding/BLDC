@@ -8,9 +8,19 @@
 
 [https://github.com/Old-Ding/BLDC](https://github.com/Old-Ding/BLDC)
 
-## 本篇只解决什么
+## 先看三相桥本体
 
-本篇只回答一个问题：
+三相桥可以先拆成三个半桥：
+
+| 相 | 上桥 | 下桥 | 输出点 |
+|---|---|---|---|
+| A 相 | `AH` | `AL` | A |
+| B 相 | `BH` | `BL` | B |
+| C 相 | `CH` | `CL` | C |
+
+每一相只需要先回答一个问题：上桥、下桥分别开还是关。三相桥的状态判断，就是把这个问题对 A/B/C 三相各做一次。
+
+本章先固定这一层：
 
 ```text
 AH/BH/CH/AL/BL/CL
@@ -18,44 +28,14 @@ AH/BH/CH/AL/BL/CL
   -> shoot_through
 ```
 
-这里的 `AH` 表示 A 相上桥，`AL` 表示 A 相下桥；B、C 两相同理。
+后续内容按这个顺序展开：
 
-本篇不讨论：
-
-| 不讨论的内容 | 后续位置 |
+| 先后顺序 | 要看懂什么 |
 |---|---|
-| 六步换相表如何产生 gates | 第 04 篇 |
-| PWM duty 如何叠加到高边或低边 | 第 08 篇 |
-| 电机电流、反电动势、转矩和负载 | Step 08 完整 PLECS 模型 |
-| 死区时间、驱动芯片保护和硬件互锁 | 第二阶段工程化保护 |
-
-这一层的唯一职责是把 6 路开关命令翻译成三相状态，并标记同一相上下桥是否同时导通。
-
-## 配套实验包
-
-本篇不是只看文字。仓库里新增了一个 MATLAB 场景测试脚本：
-
-```text
-scripts/ch02_three_phase_bridge_tests.m
-```
-
-它会生成：
-
-| 文件 | 作用 |
-|---|---|
-| `assets/02-three-phase-bridge/bridge_state_scenarios.png` | 六个 gate、三相状态和直通标志的时序图 |
-| `assets/02-three-phase-bridge/bridge_state_fault_matrix.png` | 正常导通与直通故障的矩阵对比 |
-| `waveforms/02-three-phase-bridge/bridge_state_timeseries.csv` | 时序图背后的逐点数据 |
-| `waveforms/02-three-phase-bridge/bridge_state_summary.csv` | 场景级 PASS/FAIL 汇总 |
-| `reports/02-three-phase-bridge-test_report.md` | 参数、结果和边界说明 |
-
-对应的 C 源码在：
-
-```text
-learning_model/steps/step_01_three_phase_bridge/bridge_state.c
-```
-
-MATLAB 脚本复现这层逻辑并导出图表；C 文件表达控制代码里这层应该承担的职责。
+| 1 | 单相半桥如何从 `high/low` 变成 `HIGH/LOW/FLOAT/FAULT` |
+| 2 | 三相桥如何把 A/B/C 三个半桥组合起来 |
+| 3 | 正常双管导通为什么不是直通 |
+| 4 | 同一相上下桥同时导通为什么一定要标成故障 |
 
 ## 状态编码
 
@@ -68,7 +48,7 @@ MATLAB 脚本复现这层逻辑并导出图表；C 文件表达控制代码里�
 | `FLOAT` | `0` | 该相上下桥都关闭，处于悬空状态 |
 | `FAULT` | `2` | 同一相上下桥同时导通 |
 
-本章参数很少，因为它不是电机动态仿真：
+本章参数只服务于状态级测试：每个场景固定一组 gate，观察 A/B/C 状态和直通标志是否符合期望。
 
 | 参数 | 数值 | 单位 | 说明 |
 |---|---:|---|---|
@@ -101,6 +81,14 @@ MATLAB 脚本复现这层逻辑并导出图表；C 文件表达控制代码里�
 
 三相桥只是把这个半桥规则分别应用到 A、B、C 三相。
 
+对应的 C 源码在：
+
+```text
+learning_model/steps/step_01_three_phase_bridge/bridge_state.c
+```
+
+这份 C 文件只表达三相桥状态判断，不产生换相顺序，也不调 PWM。
+
 ## 场景测试结果
 
 本篇用 6 个场景覆盖正常状态、全关状态和故障状态：
@@ -114,12 +102,7 @@ MATLAB 脚本复现这层逻辑并导出图表；C 文件表达控制代码里�
 | `fault_AH_AL` | `AH=1 BH=0 CH=0 AL=1 BL=0 CL=0` | `A=FAULT B=FLOAT C=FLOAT` | 1 | PASS |
 | `fault_BH_BL` | `AH=0 BH=1 CH=0 AL=0 BL=1 CL=0` | `A=FLOAT B=FAULT C=FLOAT` | 1 | PASS |
 
-完整结果在：
-
-```text
-waveforms/02-three-phase-bridge/bridge_state_summary.csv
-reports/02-three-phase-bridge-test_report.md
-```
+这 6 个场景由 MATLAB 脚本生成 CSV、PNG 和测试报告。这里的图是 MATLAB 状态级测试图，不是 PLECS Scope 截图，也不是完整电机仿真图。它用于验证 `gates -> phase state -> shoot_through` 这层离散逻辑。
 
 ## 图 1：gate 到相状态
 
@@ -153,6 +136,21 @@ reports/02-three-phase-bridge-test_report.md
 
 关键区别不是“有几个 gate 为 1”，而是同一相内部是否同时打开上下桥。`normal_AH_BL` 也有两个 gate 为 1，但它们分属 A 上桥和 B 下桥，所以不是直通。`fault_AH_AL` 只有 A 相内部上下桥同时导通，才是直通故障。
 
+## 配套实验包
+
+本章的实验文件放在这里：
+
+| 文件 | 作用 |
+|---|---|
+| [scripts/ch02_three_phase_bridge_tests.m](../scripts/ch02_three_phase_bridge_tests.m) | 生成本章状态级测试数据、图和报告 |
+| [assets/02-three-phase-bridge/bridge_state_scenarios.png](../assets/02-three-phase-bridge/bridge_state_scenarios.png) | 六个 gate、三相状态和直通标志的时序图 |
+| [assets/02-three-phase-bridge/bridge_state_fault_matrix.png](../assets/02-three-phase-bridge/bridge_state_fault_matrix.png) | 正常导通与直通故障的矩阵对比 |
+| [waveforms/02-three-phase-bridge/bridge_state_timeseries.csv](../waveforms/02-three-phase-bridge/bridge_state_timeseries.csv) | 时序图背后的逐点数据 |
+| [waveforms/02-three-phase-bridge/bridge_state_summary.csv](../waveforms/02-three-phase-bridge/bridge_state_summary.csv) | 场景级 PASS/FAIL 汇总 |
+| [reports/02-three-phase-bridge-test_report.md](../reports/02-three-phase-bridge-test_report.md) | 参数、结果和边界说明 |
+
+读文件时先看 `bridge_state_summary.csv`，确认 6 个场景都是 PASS；再看两张 PNG，把表格里的状态映射到波形和矩阵图上。
+
 ## 为什么直通判断放在三相桥层
 
 速度环输出的是 `duty`，换相表输出的是基础 gates，PWM 层把 duty 调成脉冲。它们都不应该把三相桥内部状态当成自己的主职责。
@@ -182,13 +180,13 @@ A_state/B_state/C_state
 shoot_through
 ```
 
-本篇 MATLAB 实验用于批量生成场景数据和图。PLECS 模型用于把同一组信号放进可视化模型里观察。两者边界不同：
+本篇 MATLAB 实验用于批量生成状态级数据和图。PLECS 模型用于把同一组信号放进 Step 01 教学模型里观察。两者证据类型不同：
 
-| 工具 | 本篇职责 |
+| 工具 | 本章里能说明什么 | 不要误读成 |
 |---|---|
-| MATLAB | 批量生成场景、CSV、PNG 和测试报告 |
-| C | 表达三相桥状态判断的控制逻辑 |
-| PLECS | 作为 Step 01 教学模型入口，观察同名信号 |
+| MATLAB | 批量验证 gate 到相状态的离散逻辑 | 完整电机仿真 |
+| C | 表达控制代码里的状态判断函数 | 驱动器硬件保护已经完成 |
+| PLECS | 在 Step 01 教学模型里观察同名信号 | 已验证电机电流、转矩和反电动势 |
 
 如果本机没有启动 PLECS RPC，本篇 MATLAB 实验仍然可以完整复现。PLECS RPC 只影响模型自动加载验证，不影响本篇 CSV 和 PNG 证据。
 
@@ -220,25 +218,16 @@ Get-Content -LiteralPath .\reports\02-three-phase-bridge-test_report.md -Encodin
 docs/02-three-phase-bridge-reproduce.md
 ```
 
-## 本篇证明什么
+## 从这组数据能学到什么
 
-本篇证明：
+本篇要让读者学会先判断三相桥状态，再去讨论换相、PWM 和电机响应。6 个场景给出的教学结论是：
 
-| 结论 | 证据 |
-|---|---|
-| 六个 gate 可以唯一映射到 A/B/C 相状态 | `bridge_state_timeseries.csv` 和图 1 |
-| 正常双管导通不等于直通 | `normal_AH_BL` 场景 |
-| 同相上下桥同时导通会产生 `FAULT` 和 `shoot_through=1` | `fault_AH_AL`、`fault_BH_BL` 场景 |
-| 当前 6 个测试场景全部符合期望 | `bridge_state_summary.csv` 和测试报告 |
-
-本篇不证明：
-
-| 不证明的内容 | 原因 |
-|---|---|
-| 电机能转起来 | 没有电机本体、电流和转矩模型 |
-| 硬件已经安全 | 没有死区、驱动芯片、过流保护和故障锁存验证 |
-| 换相顺序正确 | 本章没有引入 step 或 Hall 状态 |
-| PWM 调制正确 | 本章没有引入 carrier 和 duty |
+| 观察到的现象 | 教学结论 | 不要误读成 |
+|---|---|---|
+| `normal_AH_BL` 里 A 为 `HIGH`，B 为 `LOW`，C 为 `FLOAT` | 正常六步导通是一相拉高、一相拉低、一相悬空 | 只要两个 gate 为 1 就是直通 |
+| `all_off` 里三相都是 `FLOAT` | 全关状态可以被状态模型明确识别 | 全关等于有效制动或有效转矩 |
+| `fault_AH_AL` 里 A 为 `FAULT`，`shoot_through=1` | 同一相上下桥同时导通才是直通故障 | 速度 PI 或 PWM 层负责判断直通 |
+| 6 个场景全部 PASS | 当前状态判断表和脚本期望一致 | 电机已经能转、硬件已经安全 |
 
 ## 下一篇
 
