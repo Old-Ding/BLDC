@@ -1,142 +1,130 @@
-# 第 01 篇复现说明：BLDC 控制链总览
+# 第 01 章复现：PLECS BLDC 基准实验
 
-本篇复现目标是确认 BLDC 六步控制链的每一层都有对应的本地材料，并能重新生成 PLECS 教学模型。
+## 实验目标
 
-## 章节合同
+在同一个 PLECS BLDC 模型中运行额定负载和过载场景，复查以下因果关系：
 
-| 项目 | 内容 |
-|---|---|
-| 核心问题 | BLDC 六步控制链里，各层输入输出是什么 |
-| 本篇不解决 | 具体换相表、PI 参数、保护状态机、FOC |
-| 成功标准 | 能把 Step 01 到 Step 08 映射到控制链职责层，并能生成本篇控制链波形图 |
-| 主要证据 | `learning_model/steps/README.md`、MATLAB 脚本、CSV、PNG 图和测试报告 |
+```text
+三值相命令
+  -> 三相电流
+  -> 反电动势与电磁转矩
+  -> 净转矩 = 电磁转矩 - 负载转矩
+  -> 转速变化
+```
 
 ## 环境
 
-| 项目 | 要求 |
-|---|---|
-| 系统 | Windows 11 |
-| Shell | PowerShell |
-| 编码 | UTF-8 |
-| 必需工具 | PowerShell、MATLAB |
-| 可选工具 | Python、PLECS RPC 服务 |
+| 工具 | 要求 | 用途 |
+|---|---|---|
+| PLECS Standalone | 已验证 5.0.2 | 运行逆变器和 BLDC 电机模型、导出 Scope 主图 |
+| Python | 3.10 或更新版本 | 通过标准库 XML-RPC 运行场景、导出 CSV 和报告 |
+| MATLAB | 已验证 R2024b | 读取 PLECS CSV，生成对比图和换相局部图 |
 
-## 检查本篇文件
+模型来源和改动说明见 `models/plecs/ch01_bldc_baseline/README.md`。
 
-```powershell
-Set-Location D:\1codex\BLDC
-Get-Content -LiteralPath .\blog\01-bldc-control-chain.md -Encoding UTF8
-Get-Content -LiteralPath .\docs\01-bldc-control-chain-reproduce.md -Encoding UTF8
-```
+## 第一步：启用 PLECS RPC
 
-期望结果：
+在 PLECS 中打开：
 
 ```text
-能看到 target_speed -> speed_controller -> duty -> PWM -> gates -> inverter -> motor -> feedback 的数据流。
+File -> PLECS Preferences... -> General -> XML-RPC
 ```
 
-## 运行本篇 MATLAB 信号级仿真
+启用服务并使用端口 `1080`。PowerShell 检查命令：
 
 ```powershell
-Set-Location D:\1codex\BLDC
-matlab -batch "run('D:\1codex\BLDC\scripts\ch01_control_chain_demo.m')"
+Get-NetTCPConnection -LocalPort 1080 -State Listen
 ```
 
-期望输出类似：
-
-```text
-Generated chapter 01 control-chain demo. final_actual_rpm=973.7 duty_max=0.505 hall_edges=147
-```
-
-生成文件：
-
-| 文件 | 用途 |
-|---|---|
-| `assets\01-bldc-control-chain\control_chain_waveforms.png` | 总览波形图 |
-| `assets\01-bldc-control-chain\control_chain_gate_zoom.png` | gate 局部放大图 |
-| `waveforms\01-bldc-control-chain\control_chain_demo.csv` | 全量数据 |
-| `waveforms\01-bldc-control-chain\control_chain_summary.csv` | 指标摘要 |
-| `reports\01-bldc-control-chain-test_report.md` | 参数、指标和模型边界说明 |
-
-检查摘要数据：
+## 第二步：运行 PLECS 场景
 
 ```powershell
-Get-Content -LiteralPath .\waveforms\01-bldc-control-chain\control_chain_summary.csv -Encoding UTF8
-```
-
-当前期望摘要：
-
-```text
-target_rpm_final,actual_rpm_final,feedback_rpm_final,duty_max,step_change_count,hall_edge_count
-1200,973.706799283726,961.538461538465,0.50544,147,147
-```
-
-这些数值用于说明控制链的信号先后关系，不用于评价真实电机性能。
-
-## 检查 Step 目录
-
-```powershell
-Set-Location D:\1codex\BLDC
-Get-ChildItem -LiteralPath .\learning_model\steps -Directory |
-    Where-Object { $_.Name -like 'step_*' } |
-    Select-Object Name |
-    Format-Table -AutoSize
-```
-
-期望至少看到：
-
-```text
-step_01_three_phase_bridge
-step_02_six_step_table
-step_03_open_loop_commutation
-step_04_hall_commutation
-step_05_pwm_duty
-step_06_speed_estimation
-step_07_speed_pi
-step_08_plecs_full_model
-```
-
-## 重新生成 PLECS 教学模型
-
-```powershell
-Set-Location D:\1codex\BLDC
-powershell -ExecutionPolicy Bypass -File .\learning_model\steps\generate_step_plecs.ps1
+git clone https://github.com/Old-Ding/BLDC.git
+Set-Location .\BLDC
+python .\scripts\ch01_plecs_bldc_baseline.py
 ```
 
 期望输出：
 
 ```text
-Generated step PLECS models.
+PLECS_SCENARIO_START scenario=nominal_load
+PLECS_SCENARIO_DONE scenario=nominal_load result=PASS elapsed_s=<实际耗时>
+PLECS_SCENARIO_START scenario=overload
+PLECS_SCENARIO_DONE scenario=overload result=PASS elapsed_s=<实际耗时>
+Generated chapter 01 PLECS baseline. scenarios=2 pass=2 time_points=601 signals=11 elapsed_s=<总耗时>
 ```
 
-这个命令证明模型生成链路存在，不证明 PLECS 已经完成仿真。
+最后一行出现后，Python 场景脚本已经结束。PLECS 是由用户启动的 XML-RPC 服务，脚本只关闭本章模型，不关闭 PLECS 应用；因此 PLECS 窗口继续存在不表示仿真仍在运行。单次 RPC 调用超过 120 秒时，脚本会以 `PLECS_RPC_TIMEOUT` 退出，不会无限等待。
 
-## 批量验证 PLECS 模型
+脚本运行两个场景：
 
-先启动 PLECS RPC 服务，再运行：
+| 场景 | 直流母线 | 电流参考 | 负载转矩 | 预期现象 |
+|---|---:|---:|---:|---|
+| `nominal_load` | 300 V | 5 A | 3 N m | 电磁转矩跟随负载，转速保持并略有上升 |
+| `overload` | 300 V | 5 A | 6 N m | 电流保持受限，可用转矩不足，转速持续下降 |
 
-```powershell
-Set-Location D:\1codex\BLDC
-python .\learning_model\steps\test_step_plecs_models.py
-```
+最近一次运行的关键指标：
 
-如果 PLECS RPC 已启动，期望看到 Step 01 到 Step 08 的 `SIM_OK`。
+| 场景 | 相电流峰值 | 尾段转速 | 尾段电磁转矩 | 结果 |
+|---|---:|---:|---:|---|
+| `nominal_load` | 5.9941 A | 3490.23 rpm | 2.9936 N m | PASS |
+| `overload` | 5.9982 A | 271.99 rpm | 4.0098 N m | PASS |
 
-如果输出：
+这里的过载 PASS 表示模型正确复现“电流受限而失速”，不是表示过载时仍满足速度要求。
+
+## 第三步：导出 PLECS Scope 主图
+
+打开：
 
 ```text
-PLECS_RPC_NOT_READY
+models/plecs/ch01_bldc_baseline/ch01_bldc_baseline.plecs
 ```
 
-说明 PLECS RPC 没有连接。这是环境状态，不表示文章或模型路径错误。
+选择：
 
-## 本篇边界
+```text
+Simulation -> Simulation scripts...
+-> Export Chapter 01 Scope Evidence
+-> Run
+```
 
-本篇只验证控制链总览和材料映射。它不证明：
+模型内脚本会用 1800 x 1350 像素导出额定负载和过载 Scope 图。
 
-1. 具体三相桥逻辑完全正确。
-2. Hall 换相表适配所有电机。
-3. 速度 PI 参数已经可用于硬件。
-4. 保护状态机已经完整。
+## 第四步：生成 MATLAB 辅助图
 
-这些内容会在后续章节分别验证。
+```powershell
+matlab -batch "run('scripts/ch01_control_chain_demo.m')"
+```
+
+期望输出：
+
+```text
+Generated chapter 01 MATLAB post-processing. scenarios=2 pass=2 figures=2
+```
+
+MATLAB 不重新模拟电机，只读取 PLECS CSV 做场景比较和局部放大。
+
+## 生成物
+
+| 类型 | 文件 |
+|---|---|
+| PLECS 模型 | `models/plecs/ch01_bldc_baseline/ch01_bldc_baseline.plecs` |
+| PLECS 运行器 | `scripts/ch01_plecs_bldc_baseline.py` |
+| MATLAB 后处理 | `scripts/ch01_control_chain_demo.m` |
+| 逐点数据 | `waveforms/01-bldc-control-chain/plecs_nominal_load.csv`、`plecs_overload.csv` |
+| 汇总数据 | `waveforms/01-bldc-control-chain/plecs_baseline_summary.csv` |
+| PLECS trace | `waveforms/01-bldc-control-chain/ch01_bldc_baseline_scope.trace` |
+| PLECS 主图 | `assets/01-bldc-control-chain/plecs_scope_nominal_load.png`、`plecs_scope_overload.png` |
+| MATLAB 辅助图 | `assets/01-bldc-control-chain/plecs_load_comparison.png`、`plecs_commutation_zoom.png` |
+| 测试报告 | `reports/01-bldc-control-chain-test_report.md` |
+
+## 常见失败
+
+| 输出或现象 | 原因 | 处理 |
+|---|---|---|
+| `PLECS_RPC_NOT_READY` | PLECS 未启动或 XML-RPC 未启用 | 启动 PLECS，检查 Preferences 和 1080 端口 |
+| `PLECS_RPC_TIMEOUT` | PLECS 停在对话框、求解器未收敛或 RPC 服务失去响应 | 切回 PLECS 检查前台提示和模型求解状态 |
+| `MODEL_MISSING` | 模型路径被移动或文件未拉取 | 检查 `models/plecs/ch01_bldc_baseline` |
+| `signal_rows` 不是 11 | 模型顶层 Outport 接口被改动 | 对照模型 README 恢复 5 个 Outport |
+| MATLAB 提示缺少输出列 | PLECS CSV 版本与脚本不一致 | 先重新运行 Python 场景脚本，再运行 MATLAB |
+| 过载场景速度下降 | 这是预期边界现象 | 对照负载转矩与尾段电磁转矩，不要按速度维持场景解读 |

@@ -1,90 +1,80 @@
-# 第 00 篇复现说明：BLDC 教程学习路线
+# 第 00 篇复现：BLDC 完整课程路线
 
-本篇复现的目标不是跑电机波形，而是确认教程材料、模型入口和后续仿真命令都可定位。
-
-配套仓库：
-
-[https://github.com/Old-Ding/BLDC](https://github.com/Old-Ding/BLDC)
+第 00 篇是路线文章，不运行电机仿真。复现目标是确认 00-36 篇阶段划分、工具职责、正式章节证据门槛和第 01 章入口在仓库中一致。
 
 ## 环境
 
 | 项目 | 要求 |
 |---|---|
-| 系统 | Windows 11 |
-| Shell | PowerShell |
+| 系统 | Windows 11 或可运行 Git/Markdown 的其他系统 |
+| Shell | 本仓库命令以 PowerShell 为准 |
 | 文件编码 | UTF-8 |
-| 仿真工具 | PLECS 可选，用于加载 Step 01 到 Step 08 |
-| 数据分析 | MATLAB 可选，从测速和 PI 扫参章节开始使用 |
+| PLECS / MATLAB | 路线检查不需要；从正式实验章开始使用 |
 
-## 检查教程文件
+## 获取仓库
 
 ```powershell
-Set-Location D:\1codex\BLDC
+git clone https://github.com/Old-Ding/BLDC.git
+Set-Location .\BLDC
+```
+
+## 检查路线入口
+
+```powershell
 Get-Content -LiteralPath .\README.md -Encoding UTF8
 Get-Content -LiteralPath .\blog\README.md -Encoding UTF8
 Get-Content -LiteralPath .\docs\series-plan.md -Encoding UTF8
-Get-Content -LiteralPath .\learning_model\steps\README.md -Encoding UTF8
 ```
 
-期望结果：
+期望能找到：
 
 ```text
-能看到第一阶段 00 到 11 篇文章规划。
-能看到 Step 01 到 Step 08 的模型入口。
+阶段 A：功率级与电机物理基础
+阶段 B：Hall 六步闭环
+阶段 C：嵌入式固件工程
+阶段 D：无感六步控制
+阶段 E：FOC 扩展与路线比较
 ```
 
-## 重新生成 PLECS 教学模型
+## 检查第 01 章实验入口
 
 ```powershell
-Set-Location D:\1codex\BLDC
-powershell -ExecutionPolicy Bypass -File .\learning_model\steps\generate_step_plecs.ps1
+Test-Path .\models\plecs\ch01_bldc_baseline\ch01_bldc_baseline.plecs
+Test-Path .\scripts\ch01_plecs_bldc_baseline.py
+Test-Path .\blog\01-bldc-control-chain.md
+Test-Path .\docs\01-bldc-control-chain-reproduce.md
 ```
 
-期望输出：
+四条命令都应返回：
 
 ```text
-Generated step PLECS models.
+True
 ```
 
-这个命令只重新生成 Step 01 到 Step 07 的信号级教学模型，并复制 Step 08 的完整模型副本。它不等同于真实仿真通过。
-
-## 批量加载仿真模型
-
-先启动 PLECS RPC 服务，再运行：
+## 检查路线与索引是否仍使用旧篇章
 
 ```powershell
-Set-Location D:\1codex\BLDC
-python .\learning_model\steps\test_step_plecs_models.py
+rg -n "00-36|06-14|15-22|23-29|30-36" README.md blog\README.md docs\series-plan.md
 ```
 
-期望输出包含：
+输出应同时覆盖仓库首页、文章索引和实施总纲。
+
+## 历史模型的定位
+
+`learning_model/steps` 中的 Step 01 到 Step 08 是早期信号拆层材料。它们可以帮助查看控制变量，但不包含正式章节要求的完整功率级、电机场景、CSV 和主图。
+
+正式章节采用以下目录：
 
 ```text
-SIM_OK step_01_three_phase_bridge
-SIM_OK step_02_six_step_table
-SIM_OK step_03_open_loop_commutation
-SIM_OK step_04_hall_commutation
-SIM_OK step_05_pwm_duty
-SIM_OK step_06_speed_estimation
-SIM_OK step_07_speed_pi
-SIM_OK step_08_plecs_full_model
+models/plecs
+scripts
+waveforms
+assets
+reports
+docs
+blog
 ```
 
-如果 PLECS RPC 没有启动，脚本会输出：
+## 路线文章的证据边界
 
-```text
-PLECS_RPC_NOT_READY
-```
-
-这表示仿真服务未连接，不表示文章结构或模型文件路径错误。
-
-## 本篇边界
-
-本篇只证明教程路线、目录入口和复现命令已经建立。它不证明：
-
-1. BLDC 电机已经能稳定闭环运行。
-2. 参数已经适合硬件。
-3. 保护状态机已经完整。
-4. FOC 已经纳入当前主线。
-
-这些内容分别放到后续章节处理。
+第 00 篇确认学习依赖、工具分工和发布规则。它不会给出某个参数集的电机性能结论；第 01 章开始，每个正式实验章都必须用模型、场景、数据、图和报告回答自己的核心问题。

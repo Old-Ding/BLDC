@@ -1,239 +1,114 @@
-% 第 01 篇：BLDC 控制链信号级仿真。
-% 为什么本脚本不用完整电机方程：本章目标是看清 target、duty、PWM、gates、
-% Hall 和 speed feedback 的数据流，不证明电机参数或硬件控制性能。
-
 clear; clc;
 
-repoRoot = fileparts(fileparts(mfilename("fullpath")));
-assetDir = fullfile(repoRoot, "assets", "01-bldc-control-chain");
-waveformDir = fullfile(repoRoot, "waveforms", "01-bldc-control-chain");
-reportDir = fullfile(repoRoot, "reports");
-if ~exist(assetDir, "dir")
-    mkdir(assetDir);
-end
-if ~exist(waveformDir, "dir")
-    mkdir(waveformDir);
-end
-if ~exist(reportDir, "dir")
-    mkdir(reportDir);
-end
+root_dir = fileparts(fileparts(mfilename('fullpath')));
+data_dir = fullfile(root_dir, 'waveforms', '01-bldc-control-chain');
+asset_dir = fullfile(root_dir, 'assets', '01-bldc-control-chain');
+if ~exist(asset_dir, 'dir'); mkdir(asset_dir); end
 
-dt = 1e-4;
-tEnd = 0.45;
-t = (0:dt:tEnd).';
-n = numel(t);
+nominal = readtable(fullfile(data_dir, 'plecs_nominal_load.csv'), ...
+    'VariableNamingRule', 'preserve');
+overload = readtable(fullfile(data_dir, 'plecs_overload.csv'), ...
+    'VariableNamingRule', 'preserve');
+summary = readtable(fullfile(data_dir, 'plecs_baseline_summary.csv'), ...
+    'VariableNamingRule', 'preserve');
 
-polePairs = 4;
-pwmFreq = 500;
-targetRpm = zeros(n, 1);
-targetRpm(t >= 0.025) = 1200;
-loadRpmEquivalent = zeros(n, 1);
-loadRpmEquivalent(t >= 0.28) = 260;
+required = ["time_s", "ia_A", "ib_A", "ic_A", "ea_V", "eb_V", "ec_V", ...
+    "speed_rpm", "electromagnetic_torque_Nm", ...
+    "phase_cmd_a", "phase_cmd_b", "phase_cmd_c"];
+require_columns(nominal, required, "nominal_load");
+require_columns(overload, required, "overload");
 
-actualRpm = zeros(n, 1);
-feedbackRpm = zeros(n, 1);
-duty = zeros(n, 1);
-carrier = zeros(n, 1);
-pwmOn = zeros(n, 1);
-electricalStep = zeros(n, 1);
-hallState = zeros(n, 1);
-ahBase = zeros(n, 1); bhBase = zeros(n, 1); chBase = zeros(n, 1);
-alBase = zeros(n, 1); blBase = zeros(n, 1); clBase = zeros(n, 1);
-ahPwm = zeros(n, 1); bhPwm = zeros(n, 1); chPwm = zeros(n, 1);
-alPwm = zeros(n, 1); blPwm = zeros(n, 1); clPwm = zeros(n, 1);
-
-electricalEdgeCount = 0;
-lastEdgeTime = NaN;
-lastStep = NaN;
-mechanicalRev = 0;
-integralView = 0;
-feedbackHold = 0;
-tau = 0.040;
-
-for k = 1:n
-    if k > 1
-        % 为什么用一阶响应：只给总览章节制造可追踪现象，不引入真实电机参数辨识。
-        motorNoLoadRpm = 2600 * duty(k - 1);
-        speedTargetByDuty = max(0, motorNoLoadRpm - loadRpmEquivalent(k));
-        actualRpm(k) = actualRpm(k - 1) + dt / tau * (speedTargetByDuty - actualRpm(k - 1));
-        mechanicalRev = mechanicalRev + actualRpm(k) / 60 * dt;
-    end
-
-    rawStep = floor(mechanicalRev * polePairs * 6);
-    stepNow = mod(rawStep, 6);
-    electricalStep(k) = stepNow;
-
-    if isnan(lastStep)
-        lastStep = stepNow;
-    elseif stepNow ~= lastStep
-        electricalEdgeCount = electricalEdgeCount + 1;
-        if ~isnan(lastEdgeTime)
-            edgePeriod = t(k) - lastEdgeTime;
-            if edgePeriod > 0
-                feedbackHold = 60 / (edgePeriod * polePairs * 6);
-            end
-        end
-        lastEdgeTime = t(k);
-        lastStep = stepNow;
-    end
-    feedbackRpm(k) = feedbackHold;
-
-    error = targetRpm(k) - feedbackRpm(k);
-    integralView = min(max(integralView + error * dt, 0), 220);
-    duty(k) = min(max(0.12 + 0.00030 * error + 0.0020 * integralView, 0), 0.82);
-
-    carrier(k) = mod(t(k) * pwmFreq, 1);
-    pwmOn(k) = carrier(k) < duty(k);
-
-    [ahBase(k), bhBase(k), chBase(k), alBase(k), blBase(k), clBase(k)] = sixStepGates(stepNow);
-    hallState(k) = hallForStep(stepNow);
-
-    ahPwm(k) = ahBase(k) * pwmOn(k);
-    bhPwm(k) = bhBase(k) * pwmOn(k);
-    chPwm(k) = chBase(k) * pwmOn(k);
-    alPwm(k) = alBase(k);
-    blPwm(k) = blBase(k);
-    clPwm(k) = clBase(k);
+if height(summary) ~= 2 || any(string(summary.result) ~= "PASS")
+    error('第 01 章 PLECS 汇总结果不是 2/2 PASS，请先重新运行 PLECS 场景脚本。');
 end
 
-T = table(t, targetRpm, actualRpm, feedbackRpm, duty, carrier, pwmOn, ...
-    electricalStep, hallState, ahBase, bhBase, chBase, alBase, blBase, clBase, ...
-    ahPwm, bhPwm, chPwm, alPwm, blPwm, clPwm);
-writetable(T, fullfile(waveformDir, "control_chain_demo.csv"));
+plot_load_comparison(nominal, overload, asset_dir);
+plot_commutation_zoom(nominal, asset_dir);
 
-summary = array2table([ ...
-    targetRpm(end), actualRpm(end), feedbackRpm(end), max(duty), ...
-    sum(abs(diff(electricalStep)) > 0), electricalEdgeCount], ...
-    "VariableNames", ["target_rpm_final", "actual_rpm_final", "feedback_rpm_final", ...
-    "duty_max", "step_change_count", "hall_edge_count"]);
-writetable(summary, fullfile(waveformDir, "control_chain_summary.csv"));
-writeReport(fullfile(reportDir, "01-bldc-control-chain-test_report.md"), ...
-    targetRpm, actualRpm, feedbackRpm, duty, electricalStep, electricalEdgeCount, dt, tEnd, polePairs, pwmFreq);
+fprintf('Generated chapter 01 MATLAB post-processing. scenarios=2 pass=2 figures=2\n');
 
-fig1 = figure("Color", "w", "Position", [100, 100, 1100, 800]);
-tiledlayout(4, 1, "TileSpacing", "compact", "Padding", "compact");
-
-nexttile;
-plot(t, targetRpm, "LineWidth", 1.4); hold on;
-plot(t, actualRpm, "LineWidth", 1.4);
-stairs(t, feedbackRpm, "LineWidth", 1.0);
-grid on;
-ylabel("rpm");
-legend("target", "actual", "Hall feedback", "Location", "southeast");
-title("BLDC control-chain signal demo");
-
-nexttile;
-plot(t, duty, "LineWidth", 1.4); hold on;
-plot(t, loadRpmEquivalent / 1000, "--", "LineWidth", 1.0);
-grid on;
-ylabel("duty / load");
-legend("duty", "load equivalent / 1000", "Location", "southeast");
-
-nexttile;
-stairs(t, electricalStep, "LineWidth", 1.2); hold on;
-stairs(t, hallState, "LineWidth", 1.0);
-grid on;
-ylabel("step / Hall");
-legend("electrical step", "Hall state", "Location", "southeast");
-
-nexttile;
-stairs(t, ahPwm, "LineWidth", 1.0); hold on;
-stairs(t, bhPwm + 1.2, "LineWidth", 1.0);
-stairs(t, chPwm + 2.4, "LineWidth", 1.0);
-grid on;
-ylabel("high gates");
-xlabel("time / s");
-legend("AH pwm", "BH pwm + 1.2", "CH pwm + 2.4", "Location", "southeast");
-
-exportgraphics(fig1, fullfile(assetDir, "control_chain_waveforms.png"), "Resolution", 180);
-
-zoomMask = t >= 0.105 & t <= 0.125;
-fig2 = figure("Color", "w", "Position", [120, 120, 1100, 620]);
-tiledlayout(3, 1, "TileSpacing", "compact", "Padding", "compact");
-
-nexttile;
-stairs(t(zoomMask), electricalStep(zoomMask), "LineWidth", 1.2); hold on;
-stairs(t(zoomMask), hallState(zoomMask), "LineWidth", 1.0);
-grid on;
-ylabel("step / Hall");
-legend("step", "Hall", "Location", "eastoutside");
-title("Gate-level zoom: PWM changes energy, not commutation order");
-
-nexttile;
-stairs(t(zoomMask), ahBase(zoomMask), "LineWidth", 1.0); hold on;
-stairs(t(zoomMask), ahPwm(zoomMask) + 1.2, "LineWidth", 1.0);
-grid on;
-ylabel("A high");
-legend("AH base", "AH pwm + 1.2", "Location", "eastoutside");
-
-nexttile;
-stairs(t(zoomMask), ahPwm(zoomMask), "LineWidth", 1.0); hold on;
-stairs(t(zoomMask), bhPwm(zoomMask) + 1.2, "LineWidth", 1.0);
-stairs(t(zoomMask), chPwm(zoomMask) + 2.4, "LineWidth", 1.0);
-stairs(t(zoomMask), alPwm(zoomMask) + 3.6, "LineWidth", 1.0);
-stairs(t(zoomMask), blPwm(zoomMask) + 4.8, "LineWidth", 1.0);
-stairs(t(zoomMask), clPwm(zoomMask) + 6.0, "LineWidth", 1.0);
-grid on;
-ylabel("gates");
-xlabel("time / s");
-legend("AH", "BH+1.2", "CH+2.4", "AL+3.6", "BL+4.8", "CL+6.0", "Location", "eastoutside");
-
-exportgraphics(fig2, fullfile(assetDir, "control_chain_gate_zoom.png"), "Resolution", 180);
-
-close(fig1);
-close(fig2);
-
-fprintf("Generated chapter 01 control-chain demo. final_actual_rpm=%.1f duty_max=%.3f hall_edges=%d\n", ...
-    actualRpm(end), max(duty), electricalEdgeCount);
-
-function [ah, bh, ch, al, bl, cl] = sixStepGates(step)
-    ah = 0; bh = 0; ch = 0; al = 0; bl = 0; cl = 0;
-    switch step
-        case 0
-            ah = 1; bl = 1;
-        case 1
-            ah = 1; cl = 1;
-        case 2
-            bh = 1; cl = 1;
-        case 3
-            bh = 1; al = 1;
-        case 4
-            ch = 1; al = 1;
-        case 5
-            ch = 1; bl = 1;
-    end
+function require_columns(data, required, scenario_name)
+missing = setdiff(required, string(data.Properties.VariableNames));
+if ~isempty(missing)
+    error('%s 缺少 PLECS 输出列: %s', scenario_name, strjoin(missing, ', '));
+end
 end
 
-function hall = hallForStep(step)
-    hallSeq = [5, 1, 3, 2, 6, 4];
-    hall = hallSeq(step + 1);
+function plot_load_comparison(nominal, overload, asset_dir)
+colors = lines(4);
+initial_speed_rpm = 300 * 60 / (2 * pi);
+nominal_i_peak = max(abs([nominal.ia_A, nominal.ib_A, nominal.ic_A]), [], 2);
+overload_i_peak = max(abs([overload.ia_A, overload.ib_A, overload.ic_A]), [], 2);
+
+f = figure('Visible', 'off', 'Color', 'w', 'Position', [100, 100, 1200, 880]);
+
+subplot(3, 1, 1);
+h_nominal_speed = plot(nominal.time_s, nominal.speed_rpm, 'LineWidth', 1.4, ...
+    'Color', colors(1, :)); hold on;
+h_overload_speed = plot(overload.time_s, overload.speed_rpm, 'LineWidth', 1.4, ...
+    'Color', colors(2, :));
+h_initial_speed = yline(initial_speed_rpm, ':', 'LineWidth', 1.0, ...
+    'Color', [0.35, 0.35, 0.35]);
+grid on; ylabel('Speed / rpm');
+title('PLECS data: load determines whether current-limited torque can sustain speed');
+legend([h_nominal_speed, h_overload_speed, h_initial_speed], ...
+    {'3 N m nominal load', '6 N m overload', 'Initial speed'}, 'Location', 'best');
+
+subplot(3, 1, 2);
+h_nominal_torque = plot(nominal.time_s, nominal.electromagnetic_torque_Nm, 'LineWidth', 1.1, ...
+    'Color', colors(1, :)); hold on;
+h_overload_torque = plot(overload.time_s, overload.electromagnetic_torque_Nm, 'LineWidth', 1.1, ...
+    'Color', colors(2, :));
+h_nominal_load = yline(3, '--', 'Color', colors(1, :));
+h_overload_load = yline(6, '--', 'Color', colors(2, :));
+grid on; ylim([0, 6.6]); ylabel('Torque / N m');
+legend([h_nominal_torque, h_overload_torque, h_nominal_load, h_overload_load], ...
+    {'Nominal electromagnetic torque', 'Overload electromagnetic torque', ...
+    '3 N m load', '6 N m load'}, 'Location', 'best');
+
+subplot(3, 1, 3);
+h_nominal_current = plot(nominal.time_s, nominal_i_peak, 'LineWidth', 1.1, ...
+    'Color', colors(1, :)); hold on;
+h_overload_current = plot(overload.time_s, overload_i_peak, 'LineWidth', 1.1, ...
+    'Color', colors(2, :));
+h_current_ref = yline(5, '--', 'Color', colors(3, :));
+grid on; ylim([0, 6.5]); ylabel('max(|i_a|,|i_b|,|i_c|) / A'); xlabel('Time / s');
+legend([h_nominal_current, h_overload_current, h_current_ref], ...
+    {'Nominal load', 'Overload', '5 A reference'}, 'Location', 'best');
+
+exportgraphics(f, fullfile(asset_dir, 'plecs_load_comparison.png'), 'Resolution', 180);
+close(f);
 end
 
-function writeReport(reportPath, targetRpm, actualRpm, feedbackRpm, duty, electricalStep, electricalEdgeCount, dt, tEnd, polePairs, pwmFreq)
-    fid = fopen(reportPath, "w", "n", "UTF-8");
-    cleanup = onCleanup(@() fclose(fid));
+function plot_commutation_zoom(nominal, asset_dir)
+window = nominal.time_s >= 0.24;
+colors = lines(3);
 
-    fprintf(fid, "# 第 01 篇测试报告：BLDC 控制链信号级仿真\n\n");
-    fprintf(fid, "生成时间：%s\n\n", string(datetime("now", "Format", "yyyy-MM-dd HH:mm:ss")));
+f = figure('Visible', 'off', 'Color', 'w', 'Position', [100, 100, 1200, 900]);
 
-    fprintf(fid, "## 参数摘要\n\n");
-    fprintf(fid, "- 采样周期：%.0f us\n", dt * 1e6);
-    fprintf(fid, "- 仿真时长：%.3f s\n", tEnd);
-    fprintf(fid, "- 极对数：%d\n", polePairs);
-    fprintf(fid, "- PWM 频率：%.0f Hz\n", pwmFreq);
-    fprintf(fid, "- 脚本：`scripts/ch01_control_chain_demo.m`\n\n");
+subplot(3, 1, 1);
+plot(nominal.time_s(window), nominal.ia_A(window), 'LineWidth', 1.1, 'Color', colors(1, :)); hold on;
+plot(nominal.time_s(window), nominal.ib_A(window), 'LineWidth', 1.1, 'Color', colors(2, :));
+plot(nominal.time_s(window), nominal.ic_A(window), 'LineWidth', 1.1, 'Color', colors(3, :));
+grid on; ylabel('Phase current / A');
+title('PLECS nominal-load commutation window');
+legend('i_a', 'i_b', 'i_c', 'Location', 'best');
 
-    fprintf(fid, "## 指标摘要\n\n");
-    fprintf(fid, "| 指标 | 数值 |\n");
-    fprintf(fid, "|---|---:|\n");
-    fprintf(fid, "| 最终目标速度 / rpm | %.1f |\n", targetRpm(end));
-    fprintf(fid, "| 最终实际速度 / rpm | %.1f |\n", actualRpm(end));
-    fprintf(fid, "| 最终 Hall 反馈速度 / rpm | %.1f |\n", feedbackRpm(end));
-    fprintf(fid, "| 最大 duty | %.3f |\n", max(duty));
-    fprintf(fid, "| step 变化次数 | %d |\n", sum(abs(diff(electricalStep)) > 0));
-    fprintf(fid, "| Hall 边沿计数 | %d |\n\n", electricalEdgeCount);
+subplot(3, 1, 2);
+plot(nominal.time_s(window), nominal.ea_V(window), 'LineWidth', 1.1, 'Color', colors(1, :)); hold on;
+plot(nominal.time_s(window), nominal.eb_V(window), 'LineWidth', 1.1, 'Color', colors(2, :));
+plot(nominal.time_s(window), nominal.ec_V(window), 'LineWidth', 1.1, 'Color', colors(3, :));
+grid on; ylabel('Back EMF / V');
+legend('e_a', 'e_b', 'e_c', 'Location', 'best');
 
-    fprintf(fid, "## 结果解释\n\n");
-    fprintf(fid, "本报告是信号级教学仿真，用于确认 target、feedback、duty、step、Hall 和 PWM gates 的先后关系。");
-    fprintf(fid, "它不评价电机参数、机械负载、驱动器死区或硬件控制性能。\n");
+subplot(3, 1, 3);
+stairs(nominal.time_s(window), nominal.phase_cmd_a(window), 'LineWidth', 1.1, 'Color', colors(1, :)); hold on;
+stairs(nominal.time_s(window), nominal.phase_cmd_b(window), 'LineWidth', 1.1, 'Color', colors(2, :));
+stairs(nominal.time_s(window), nominal.phase_cmd_c(window), 'LineWidth', 1.1, 'Color', colors(3, :));
+grid on; ylim([-1.2, 1.2]); yticks([-1, 0, 1]);
+ylabel('Phase command'); xlabel('Time / s');
+legend('A phase', 'B phase', 'C phase', 'Location', 'best');
+
+exportgraphics(f, fullfile(asset_dir, 'plecs_commutation_zoom.png'), 'Resolution', 180);
+close(f);
 end

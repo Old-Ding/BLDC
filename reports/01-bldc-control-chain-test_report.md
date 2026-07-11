@@ -1,26 +1,33 @@
-# 第 01 篇测试报告：BLDC 控制链信号级仿真
-
-生成时间：2026-07-09 17:33:13
+# 第 01 章 PLECS BLDC 基准实验报告
 
 ## 参数摘要
 
-- 采样周期：100 us
-- 仿真时长：0.450 s
-- 极对数：4
-- PWM 频率：500 Hz
-- 脚本：`scripts/ch01_control_chain_demo.m`
+| 参数 | 数值 | 单位 |
+|---|---:|---|
+| 直流母线电压 | 300 | V |
+| 电流参考 | 5 | A |
+| 初始机械角速度 | 300 | rad/s |
+| 仿真时长 | 0.3 | s |
+| 输出采样间隔 | 0.5 | ms |
 
-## 指标摘要
+## 场景结果
 
-| 指标 | 数值 |
-|---|---:|
-| 最终目标速度 / rpm | 1200.0 |
-| 最终实际速度 / rpm | 973.7 |
-| 最终 Hall 反馈速度 / rpm | 961.5 |
-| 最大 duty | 0.505 |
-| step 变化次数 | 147 |
-| Hall 边沿计数 | 147 |
+| 场景 | 负载转矩/Nm | 相电流峰值/A | 尾段转速/rpm | 尾段电磁转矩/Nm | 结果 |
+|---|---:|---:|---:|---:|---|
+| nominal_load | 3.000 | 5.9941 | 3490.23 | 2.9936 | PASS |
+| overload | 6.000 | 5.9982 | 271.99 | 4.0098 | PASS |
 
-## 结果解释
+## 判定边界
 
-本报告是信号级教学仿真，用于确认 target、feedback、duty、step、Hall 和 PWM gates 的先后关系。它不评价电机参数、机械负载、驱动器死区或硬件控制性能。
+- `nominal_load`：电磁转矩跟随 3 Nm 负载，尾段转速保持在 320 rad/s 以上。
+- `overload`：6 Nm 负载超过 5 A 电流参考所能提供的转矩，预期现象是电流受限而转速塌落。
+- PASS 表示模型出现了场景定义的预期行为；过载场景的 PASS 不表示电机仍能维持转速。
+
+## 证据来源
+
+- PLECS trace：`waveforms/01-bldc-control-chain/ch01_bldc_baseline_scope.trace`
+- 逐点数据：`waveforms/01-bldc-control-chain/plecs_*.csv`
+- 汇总数据：`waveforms/01-bldc-control-chain/plecs_baseline_summary.csv`
+
+该模型验证电流换相、三相逆变器、BLDC 电磁模型和机械负载之间的因果链。
+速度 PI、Hall 量化、死区、器件损耗和硬件保护不在本实验的判定范围内。

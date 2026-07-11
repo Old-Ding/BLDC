@@ -1,230 +1,211 @@
-# BLDC 控制链总览：先看数据流，再看算法
+# 01 让 BLDC 在 PLECS 里真正转起来：电流、转矩与负载的因果链
 
-很多 BLDC 入门资料一开始就讲换相表、PWM、霍尔、速度环。每个点单独看都不难，但放在一起时，读者容易不知道一个变量到底是谁产生的、谁消费的、出了问题应该查哪一层。
+给 BLDC 一个 5 A 电流参考，电机就一定能维持速度吗？
 
-本篇先不讲具体算法，只回答一个问题：BLDC 六步控制链里，每一层的输入和输出是什么。
+同一个 PLECS 模型里，3 N m 负载时，尾段转速为 3490.23 rpm；把负载提高到 6 N m，电流仍被限制在约 6 A，但尾段转速降到 271.99 rpm，并继续接近停转。
 
-配套仓库：
+决定速度的不是“有没有电流”，而是电磁转矩能否持续大于负载转矩。本章从这组可复现现象出发，把三相桥、电机电磁量和机械负载连成一条因果链。
 
-[https://github.com/Old-Ding/BLDC](https://github.com/Old-Ding/BLDC)
+配套仓库：[https://github.com/Old-Ding/BLDC](https://github.com/Old-Ding/BLDC)
 
-## 本篇只解决什么
+## 先建立最小物理模型
 
-本篇只建立控制链总览：
-
-```text
-target_speed
-  -> speed_controller
-  -> duty
-  -> PWM
-  -> gates
-  -> inverter
-  -> motor
-  -> Hall / speed feedback
-```
-
-这里的重点不是公式，而是先把职责边界固定下来。后续每篇文章只深入其中一层。
-
-## 本篇配套仿真
-
-为了让这条链不是停留在文字层面，本篇增加一个 MATLAB 信号级仿真：
+BLDC 从控制命令到机械转速，至少经过五次转换：
 
 ```text
-scripts/ch01_control_chain_demo.m
+电流参考 + 转子角度
+  -> 换相控制器决定 A/B/C 三值相命令
+  -> 逆变器把直流母线变成三相电流
+  -> 三相电流与反电动势共同形成电磁转矩
+  -> 电磁转矩克服负载并改变转速
 ```
 
-它生成两张图、两份数据和一份测试报告：
+这条链里，前一层的输出是后一层的输入：
 
-| 文件 | 作用 |
-|---|---|
-| [assets/01-bldc-control-chain/control_chain_waveforms.png](../assets/01-bldc-control-chain/control_chain_waveforms.png) | 总览目标速度、实际速度、Hall 反馈、duty、step、Hall 和高边 PWM |
-| [assets/01-bldc-control-chain/control_chain_gate_zoom.png](../assets/01-bldc-control-chain/control_chain_gate_zoom.png) | 放大观察换相 step、Hall 状态、基础 gate 和 PWM 后 gate |
-| [waveforms/01-bldc-control-chain/control_chain_demo.csv](../waveforms/01-bldc-control-chain/control_chain_demo.csv) | 全量仿真数据 |
-| [waveforms/01-bldc-control-chain/control_chain_summary.csv](../waveforms/01-bldc-control-chain/control_chain_summary.csv) | 关键指标摘要 |
-| [reports/01-bldc-control-chain-test_report.md](../reports/01-bldc-control-chain-test_report.md) | 参数、指标和模型边界说明 |
+| 层 | 输入 | 内部作用 | 输出 | 本章证据 |
+|---|---|---|---|---|
+| 换相控制 | 电流参考、转子角度、三相电流 | 按转子位置切换通电相，并限制相电流 | A/B/C 三值相命令 | PLECS `phase_cmd_a/b/c` |
+| 三相逆变器 | 300 V 母线、三值相命令 | 将每相的正接、悬空或负接要求作用到桥臂 | `ia/ib/ic` | PLECS Stator Phase |
+| BLDC 电磁模型 | 三相电流、转子位置 | 生成梯形反电动势和电磁转矩 | `ea/eb/ec`、`Te` | PLECS Back EMF、Machine |
+| 机械模型 | 电磁转矩、负载转矩、转动惯量 | 对净转矩积分 | 机械角速度 `ωm` | PLECS Motor |
 
-这组实验的读法是：先把控制变量的先后关系看清楚，再讨论电机物理细节。这里的 `actualRpm` 是便于观察反馈链路的一阶响应量；它用来说明 `duty` 改变后速度和 Hall 反馈如何滞后更新，不用来计算真实绕组电流或转矩。绕组电阻/电感、相电流、反电动势、转矩、驱动器死区和保护动作，会在后续 Step 08 完整模型章节单独验证。
-
-## 仿真图 1：从目标速度到反馈速度
-
-![BLDC 控制链信号级仿真波形](../assets/01-bldc-control-chain/control_chain_waveforms.png)
-
-这张图要按四层读：
-
-| 子图 | 看什么 | 结论 |
-|---|---|---|
-| `target / actual / Hall feedback` | 目标速度阶跃后，实际速度上升，Hall 反馈以阶梯形式更新 | Hall 测速不是连续模拟量，它只在边沿出现后更新 |
-| `duty / load` | 负载扰动出现后，duty 继续抬升 | 速度控制层只通过 duty 改变能量 |
-| `step / Hall` | step 和 Hall 状态随电角度推进 | 位置反馈决定换相扇区 |
-| `high gates` | 高边桥臂被 PWM 切成脉冲 | PWM 改变输出能量，不改变六步换相顺序 |
-
-本次仿真的摘要数据：
-
-| 指标 | 数值 |
-|---|---:|
-| 最终目标速度 | 1200 rpm |
-| 最终实际速度 | 973.7 rpm |
-| 最终 Hall 反馈速度 | 961.5 rpm |
-| 最大 duty | 0.505 |
-| step 变化次数 | 147 |
-| Hall 边沿次数 | 147 |
-
-读这组指标时，不要先问“为什么没有达到 1200 rpm”，而要先看信号顺序：目标阶跃出现后 `duty` 先上升，`actualRpm` 随后一阶爬升，`Hall feedback` 只在边沿到来后阶梯更新。最终实际速度 973.7 rpm 说明这组参数只服务于控制链教学，不能拿来评价速度环调参质量。
-
-## 仿真图 2：PWM 不改变换相顺序
-
-![BLDC gates 局部放大](../assets/01-bldc-control-chain/control_chain_gate_zoom.png)
-
-这张局部放大图只看一个问题：`PWM` 和 `换相` 是不是同一层职责。
-
-中间子图里，`AH base` 是基础换相命令；`AH pwm` 是叠加 PWM 后的高边 gate。可以看到基础换相命令决定 A 相高边是否属于当前导通相，PWM 只在它导通的窗口内切脉冲。
-
-所以后续文章会把职责拆开：
-
-| 层 | 负责什么 | 不负责什么 |
-|---|---|---|
-| 换相层 | 决定哪两相导通 | 不决定输出能量大小 |
-| PWM 层 | 根据 duty 调制能量 | 不改变当前处于哪一步换相 |
-| 速度层 | 根据速度误差输出 duty | 不直接操作 AH/BH/CH/AL/BL/CL |
-
-## 为什么要先看数据流
-
-如果不先建数据流，常见问题会被混在一起：
-
-| 现象 | 不应该直接归因到 | 应该先查的链路 |
-|---|---|---|
-| 电机不转 | PI 参数 | `gates -> inverter -> motor` 是否有有效输出 |
-| 电机抖动 | PWM 频率 | `Hall -> gates` 是否顺序正确 |
-| 速度不稳 | 三相桥 | `Hall edge -> speed feedback -> speed_controller` 是否更新稳定 |
-| duty 到顶 | 换相表 | 目标、负载、限幅和反馈是否匹配 |
-
-先看数据流的意义是：症状出现时，可以沿着调用链往上追，而不是在没有证据的层面猜原因。
-
-## 六步 BLDC 的最小调用链
-
-第一阶段教程采用六步 BLDC 主线。最小调用链可以拆成 8 个职责层：
-
-| 层级 | 输入 | 输出 | 唯一职责 |
-|---|---|---|---|
-| 目标层 | 用户设定、上位机命令 | `target_speed` | 给出希望达到的速度 |
-| 速度控制层 | `target_speed`、`actual_speed` | `duty` | 决定需要多少能量 |
-| PWM 层 | `duty`、`carrier`、基础换相命令 | 带 PWM 的 gates | 把能量指令调制成开关命令 |
-| 换相层 | `step` 或 Hall 状态 | 基础 gates | 决定哪两相导通 |
-| 功率级 | gates、母线电压 | 三相端电压/电流 | 执行桥臂开关动作 |
-| 电机本体 | 三相电压/电流、负载 | 转矩、转速、位置 | 产生机械响应 |
-| 位置反馈层 | Hall A/B/C | Hall 状态或换相 step | 提供位置扇区 |
-| 速度反馈层 | Hall 边沿周期、极对数 | `actual_speed` | 给速度环提供反馈 |
-
-这张表是后续章节的边界。比如速度 PI 只输出 `duty`，它不应该直接处理桥臂，也不应该重复判断 Hall 合法性。
-
-## 现有 PLECS 学习模型如何对应
-
-当前仓库已经把这条链拆成 Step 01 到 Step 08。每一步只新增一个职责：
-
-| 步骤 | 对应控制链 | 观察重点 |
-|---|---|---|
-| Step 01 三相桥状态 | gates -> phase state | 上下桥是否直通，三相分别接正母线、负母线还是悬空 |
-| Step 02 六步换相表 | step -> gates | 每个 step 对应哪两个桥臂导通 |
-| Step 03 开环换相 | tick -> step -> gates | 不靠反馈也能产生旋转磁场 |
-| Step 04 Hall 换相 | Hall -> gates | 位置反馈如何决定换相 |
-| Step 05 PWM duty | duty + carrier + gates -> PWM gates | PWM 只调能量，不改换相顺序 |
-| Step 06 速度估算 | Hall edge -> actual_speed | 速度来自 Hall 边沿间隔 |
-| Step 07 速度 PI | target_speed - actual_speed -> duty | 闭环只输出占空比 |
-| Step 08 完整模型 | inverter + motor + sensor + controller | 把最小模型映射回真实系统 |
-
-Step 01 到 Step 07 是信号级教学模型，统一结构是：
+电机为什么加速或减速，由机械方程直接决定：
 
 ```text
-Clock -> StepLogic(C-Script) -> Demux -> Scope
+J * dωm/dt = Te - TL - B * ωm
 ```
 
-Step 01 到 Step 07 的读法是：每次只观察一个控制变量如何产生、如何被下一层使用。等这些变量的含义稳定之后，再到 Step 08 看它们进入完整 BLDC 电机模型后的影响。
+- `J` 是转动惯量。
+- `Te` 是电磁转矩。
+- `TL` 是负载转矩。
+- `B * ωm` 是粘性阻尼转矩。
 
-## PLECS、MATLAB 和 C 的职责
+当 `Te > TL + Bωm`，净转矩为正，电机加速；当 `Te < TL + Bωm`，净转矩为负，电机减速。速度不是控制器直接“写进去”的数值，而是净转矩随时间积分后的结果。
 
-本系列继续使用 PLECS 和 MATLAB，但它们不承担同一个职责。
+## 三相电流为什么能形成转矩
 
-| 工具 | 在本系列中的位置 | 不负责什么 |
-|---|---|---|
-| PLECS | 建立系统现象，观察桥臂、PWM、电机和反馈波形 | 不替代算法分层 |
-| MATLAB | 计算公式、扫参数、处理导出数据、画图 | 不替代功率级仿真 |
-| C 代码 | 表达换相、测速、PI、状态机等控制逻辑 | 不模拟真实电机本体 |
-| Markdown | 记录调用链、实验命令和边界 | 不制造证据 |
+BLDC 的反电动势接近梯形。六步换相让两相通电、一相悬空，并尽量让相电流方向与相反电动势的有效平顶区匹配。
 
-所以正确工作流是：
+忽略损耗时，电磁功率可写成：
 
 ```text
-先用 C 写清唯一职责层
-  -> 用 PLECS 看该层进入系统后的现象
-  -> 用 MATLAB 分析参数和数据
-  -> 再把结果写成教程
+Pe = ea * ia + eb * ib + ec * ic
+Te = Pe / ωm    (ωm != 0)
 ```
 
-## 哪些内容留到后面
+这里最重要的不是背公式，而是看乘积的符号：当通电相的 `e * i` 主要为正，电能转化为正向机械功率；换相顺序错误时，部分相的乘积会变成负值，电磁转矩下降甚至反向。
 
-本篇不讲这些内容：
+本章 PLECS 模型使用电流换相控制器、标准两电平 IGBT 三相桥和 BLDC Machine 元件。仓库模型由 PLECS Standalone 5.0.2 内置 `brushless_dc_machine` 示例改造而来，增加了集中参数、顶层数据输出和 Scope 自动导出脚本。这个出处很重要：功率级和电机响应由 PLECS 求解，MATLAB 不承担电机模型的主证据。
 
-| 内容 | 放到哪篇 |
-|---|---|
-| 三相桥具体状态判断 | 第 02 篇 |
-| 电角度、机械角度和极对数 | 第 03 篇 |
-| 六步换相表 | 第 04 篇 |
-| 开环换相和失步 | 第 05、06 篇 |
-| Hall 状态表 | 第 07 篇 |
-| PWM 占空比 | 第 08 篇 |
-| Hall 边沿测速 | 第 09 篇 |
-| 速度 PI | 第 10 篇 |
-| 保护状态机、软启动、堵转检测 | 第二阶段工程化 |
-| FOC、Clarke/Park、SVPWM | 第三阶段 FOC 进阶 |
+## 实验参数
 
-这样拆分的目的，是让每个问题有唯一职责层。比如非法 Hall 状态只应该先在 `Hall -> gates` 这一层讨论；如果后续确实需要保护层重复关断，必须先说明它是安全授权层，而不是重复修正换相层。
+| 参数 | 符号 | 数值 | 单位 | 在模型中的作用 |
+|---|---|---:|---|---|
+| 直流母线电压 | `Udc` | 300 | V | 给三相逆变器供电 |
+| 电流参考 | `Iref` | 5 | A | 限制换相电流量级 |
+| 定子相电阻 | `R` | 0.388 | Ω | 决定铜耗和电流动态 |
+| 定子电感 | `L0` | 2.84 | mH | 限制相电流变化速度 |
+| 转动惯量 | `J` | 2e-3 | kg m² | 决定转速对净转矩的响应快慢 |
+| 粘性阻尼 | `B` | 0 | N m s/rad | 本章先隔离负载转矩对速度的影响 |
+| 极对数 | `p` | 1 | 1 | 本章先固定电角度与机械角度比例 |
+| 初始机械角速度 | `ωm0` | 300 | rad/s | 本章观察运行状态，不用于证明静止启动 |
+| 仿真时长 |  | 0.3 | s | 覆盖额定运行和过载减速过程 |
+| CSV 采样间隔 |  | 0.5 | ms | 输出 601 个等间隔数据点 |
 
-## 从这组数据能学到什么
+初始转速设为 300 rad/s，是为了把第一章的观察焦点固定在“电流、转矩、负载、转速”这条链上。静止启动需要处理初始转子位置、开环拖动和切换条件，会在开环启动章节单独验证。
 
-本篇要让读者学会用数据流定位问题，而不是把所有现象都归因到 PI 参数或电机本体。MATLAB 信号级仿真给出的证据是：`target_speed`、`duty`、`PWM gates`、`Hall` 和 `feedback speed` 之间存在可观测的先后关系。
+## 两个场景只改变负载
 
-| 观察到的现象 | 教学结论 | 不要误读成 |
+| 场景 | `Udc` | `Iref` | `TL` | 要检查的现象 |
+|---|---:|---:|---:|---|
+| `nominal_load` | 300 V | 5 A | 3 N m | 电磁转矩能否跟随负载，速度能否维持 |
+| `overload` | 300 V | 5 A | 6 N m | 电流受限后，可用转矩不足会怎样反映到速度 |
+
+母线、电机参数和电流参考完全相同，所以两组结果的主要差异可以归因到负载转矩，而不是同时改动多个参数后的猜测。
+
+## 额定负载：先看四组 PLECS 波形
+
+![PLECS 额定负载 Scope](../assets/01-bldc-control-chain/plecs_scope_nominal_load.png)
+
+这张图由 PLECS 模型内的 `Export Chapter 01 Scope Evidence` 脚本直接导出。按从上到下的顺序读：
+
+| Scope 区域 | 先看什么 | 得到的结论 |
 |---|---|---|
-| `target_speed` 阶跃后 `duty` 先变化 | 速度层通过 duty 向下游传递能量需求 | PI 参数已经调好 |
-| `Hall feedback` 呈阶梯更新 | Hall 测速来自边沿周期，不是连续模拟速度 | 反馈链路没有延迟 |
-| 高边 gate 被 PWM 切成脉冲 | PWM 调能量，不改变六步换相顺序 | PWM 层负责选择导通相 |
-| Step 01 到 Step 08 分别对应控制链节点 | 后续章节可以沿链路逐层排查 | 信号级模型已经等于硬件可运行 |
+| `Stator Phase` | 任一时刻主要有两相带电流，第三相接近零 | 六步换相采用“两相通电、一相悬空” |
+| `Back EMF` | 三相梯形反电动势彼此错开 120° 电角度 | 换相位置必须跟随转子电角度 |
+| `Motor` | 转速在约 365.5 rad/s 附近呈小幅周期纹波 | 转矩脉动经过转动惯量积分后表现为较小速度纹波 |
+| `Machine` | 电磁转矩在约 2.0 至 3.8 N m 之间脉动 | 六步换相的瞬时转矩不是常数，应看周期平均值 |
 
-真正上硬件前，还需要继续验证驱动器死区、过流保护、欠压保护、软启动、堵转检测、故障状态机和上电检查。这些属于工程化章节，不应混在第 01 篇的控制链总览里。
+额定场景的尾段平均电磁转矩是 2.9936 N m，几乎等于 3 N m 负载。净转矩的周期平均值接近零，因此转速不再持续下降。
 
-## 如何复现
+相电流峰值为 5.9941 A，高于 5 A 参考。这个峰值来自滞环控制的上下阈值和开关纹波，并不表示电流环失效；判断电流限制时必须同时看参考值、滞环带和实际峰值，不能只拿一个采样点比较。
 
-先查看学习模型入口：
+## 过载：电流还在，速度为什么掉下去
+
+![PLECS 过载 Scope](../assets/01-bldc-control-chain/plecs_scope_overload.png)
+
+过载图要先看 `Motor`，再回到 `Stator Phase` 和 `Machine`：
+
+1. 0.20 s 到 0.30 s 内，机械角速度从约 100 rad/s 持续降到接近 0。
+2. 三相电流仍维持在约 5 A 的受限区间，没有随着负载提高到 6 N m 而无限增大。
+3. 尾段平均电磁转矩只有 4.0098 N m，明显小于 6 N m 负载。
+4. `Te - TL` 长时间为负，机械方程积分后只能得到持续下降的转速。
+
+因此，“电流环仍然工作”和“电机仍能维持速度”是两个不同判断。电流限制保护了功率级和绕组，但它不能凭空增加电机的可用转矩。
+
+## 把两组 PLECS 数据放在同一坐标系
+
+![PLECS 数据的负载对比](../assets/01-bldc-control-chain/plecs_load_comparison.png)
+
+这张图由 MATLAB 读取 `plecs_nominal_load.csv` 和 `plecs_overload.csv` 后生成。它是 PLECS 数据的后处理图，不是另一套 MATLAB 电机仿真。
+
+三行图分别回答三个问题：
+
+- 转速：3 N m 时上升后稳定，6 N m 时持续下降。
+- 转矩：额定场景的平均值能覆盖负载，过载场景的平均值达不到 6 N m。
+- 电流：两种负载下相电流峰值都保持在约 6 A，说明失速的根因不是“没有电流”，而是受限电流对应的转矩能力不足。
+
+对应的汇总指标如下：
+
+| 场景 | 相电流峰值 | 尾段转速 | 最终角速度 | 尾段平均电磁转矩 | 结果 |
+|---|---:|---:|---:|---:|---|
+| `nominal_load` | 5.9941 A | 3490.23 rpm | 365.40 rad/s | 2.9936 N m | PASS |
+| `overload` | 5.9982 A | 271.99 rpm | -1.26 rad/s | 4.0098 N m | PASS |
+
+过载场景的 PASS 表示“成功复现电流受限后的失速边界”。它不表示 6 N m 工况满足速度指标。
+
+## 放大一次换相：命令、电流和反电动势如何对应
+
+![PLECS 数据的换相局部放大](../assets/01-bldc-control-chain/plecs_commutation_zoom.png)
+
+局部图仍然来自 PLECS CSV。这里画的是三值相命令，不是六个 IGBT 的独立门极电平：
+
+| 相命令值 | 期望桥臂状态 |
+|---:|---|
+| `1` | 该相接正母线，上桥导通 |
+| `0` | 该相关断，处于悬空窗口 |
+| `-1` | 该相接负母线，下桥导通 |
+
+沿任意一个换相边沿向上看，可以观察到三件事：
+
+1. 一相命令退出，另一相命令接管，始终保留一相悬空。
+2. 相电流不会瞬间跳到新值，因为绕组电感限制 `di/dt`。
+3. 反电动势的平顶区决定当前哪一组通电方向能产生正向电磁功率。
+
+这就是后续换相表的物理依据。换相表不是六行需要死记的位模式，而是在六个电角度扇区里选择正通电相、负通电相和悬空相。
+
+## 如何解读本章证据
+
+| 已观察到的证据 | 本章可以得到的结论 | 不要误读成 |
+|---|---|---|
+| PLECS 两电平 IGBT 桥和 BLDC Machine 共同运行 | 三相电流、反电动势、转矩和转速属于同一物理模型链 | 硬件器件损耗和热设计已经验证 |
+| 3 N m 场景转矩平均值跟随负载 | 5 A 电流参考在该参数下可覆盖 3 N m 负载 | 已完成速度 PI 调参 |
+| 6 N m 场景电流受限且速度塌落 | 电流上限对应有限转矩能力 | 保护逻辑已经完成 |
+| 模型按连续转子角度换相 | 可观察理想位置反馈下的电磁链 | Hall 边沿量化、非法 Hall 状态和安装偏差已经验证 |
+| 初始速度为 300 rad/s | 可稳定观察运行区换相和负载能力 | 已证明 BLDC 能从静止可靠启动 |
+
+## 复现实验
+
+先启动 PLECS，并在 Preferences 中启用端口 `1080` 的 XML-RPC 服务。然后执行：
 
 ```powershell
-Set-Location D:\1codex\BLDC
-Get-Content -LiteralPath .\learning_model\steps\README.md -Encoding UTF8
+git clone https://github.com/Old-Ding/BLDC.git
+Set-Location .\BLDC
+python .\scripts\ch01_plecs_bldc_baseline.py
+matlab -batch "run('scripts/ch01_control_chain_demo.m')"
 ```
 
-重新生成 Step 01 到 Step 08 教学模型：
-
-```powershell
-powershell -ExecutionPolicy Bypass -File .\learning_model\steps\generate_step_plecs.ps1
-```
-
-如果已经启动 PLECS RPC 服务，可以验证模型能否加载仿真：
-
-```powershell
-python .\learning_model\steps\test_step_plecs_models.py
-```
-
-重新生成本篇 MATLAB 信号级仿真图：
-
-```powershell
-matlab -batch "run('D:\1codex\BLDC\scripts\ch01_control_chain_demo.m')"
-```
-
-本篇复现说明见：
+期望输出：
 
 ```text
-docs/01-bldc-control-chain-reproduce.md
+Generated chapter 01 PLECS baseline. scenarios=2 pass=2 time_points=601 signals=11 elapsed_s=<总耗时>
+Generated chapter 01 MATLAB post-processing. scenarios=2 pass=2 figures=2
 ```
 
-## 下一篇
+PLECS Scope 主图由模型内置脚本生成：
 
-下一篇进入三相桥的 6 个开关。重点是把 `AH/BH/CH/AL/BL/CL` 翻译成 A/B/C 三相状态，并明确直通检测属于三相桥状态层，不属于速度 PI 或 PWM 层。
+```text
+Simulation -> Simulation scripts...
+-> Export Chapter 01 Scope Evidence
+-> Run
+```
+
+## 配套文件
+
+| 类型 | 路径 | 作用 |
+|---|---|---|
+| PLECS 模型 | `models/plecs/ch01_bldc_baseline/ch01_bldc_baseline.plecs` | 三相桥、BLDC 电磁模型和机械负载 |
+| PLECS 模型说明 | `models/plecs/ch01_bldc_baseline/README.md` | 来源、改动和 Outport 映射 |
+| PLECS 运行器 | `scripts/ch01_plecs_bldc_baseline.py` | 运行场景、判定结果、生成 CSV 和报告 |
+| MATLAB 后处理 | `scripts/ch01_control_chain_demo.m` | 读取 PLECS CSV，生成对比图和局部图 |
+| 逐点数据 | `waveforms/01-bldc-control-chain/plecs_nominal_load.csv` | 额定负载 601 点、11 路 PLECS 输出 |
+| 逐点数据 | `waveforms/01-bldc-control-chain/plecs_overload.csv` | 过载 601 点、11 路 PLECS 输出 |
+| 汇总数据 | `waveforms/01-bldc-control-chain/plecs_baseline_summary.csv` | 参数、指标和 PASS/FAIL |
+| PLECS 主图 | `assets/01-bldc-control-chain/plecs_scope_*.png` | PLECS Scope 直接导出的正式证据 |
+| MATLAB 辅助图 | `assets/01-bldc-control-chain/plecs_*.png` | 对比和换相局部放大 |
+| 测试报告 | `reports/01-bldc-control-chain-test_report.md` | 参数、场景和判定边界 |
+| 复现说明 | `docs/01-bldc-control-chain-reproduce.md` | 环境、命令、输出和失败解释 |
+
+## 下一章：三值相命令怎样变成六路门极信号
+
+本章已经看到 `phase_cmd_a/b/c = 1/0/-1` 与三相电流的对应关系。下一章把两电平三相桥单独拆开，验证三值相命令如何展开成六路 IGBT 门极信号，以及上桥导通、下桥导通、悬空和同桥臂直通时 A/B/C 相端会出现什么状态。
