@@ -1,0 +1,7 @@
+script_dir=fileparts(mfilename('fullpath'));root_dir=fileparts(script_dir);w=fullfile(root_dir,'waveforms','09-hall-sequence');a=fullfile(root_dir,'assets','09-hall-sequence');if ~exist(a,'dir');mkdir(a);end
+f=readtable(fullfile(w,'plecs_forward.csv'),'VariableNamingRule','preserve');r=readtable(fullfile(w,'plecs_reverse.csv'),'VariableNamingRule','preserve');z=readtable(fullfile(w,'plecs_invalid_000.csv'),'VariableNamingRule','preserve');s=readtable(fullfile(w,'plecs_hall_summary.csv'),'VariableNamingRule','preserve');assert(all(strcmp(s.result,'PASS')));
+fig=figure('Color','w','Position',[100 80 1550 1000]);tl=tiledlayout(fig,3,1,'TileSpacing','compact','Padding','compact');title(tl,'Hall sequence from PLECS rotor angle');
+nexttile;stairs(f.time_s,f.hall_a+2,'LineWidth',1.2);hold on;stairs(f.time_s,f.hall_b+1,'LineWidth',1.2);stairs(f.time_s,f.hall_c,'LineWidth',1.2);yticks([0 1 2 3]);yticklabels({'C=0','B=0','A=0','1'});ylabel('forward');grid on;
+nexttile;stairs(r.time_s,r.hall_code,'LineWidth',1.3);hold on;stairs(f.time_s,f.hall_code,'LineWidth',1.3);ylabel('Hall code');grid on;legend('reverse','forward','Location','eastoutside');
+nexttile;stairs(z.time_s,z.hall_code,'LineWidth',1.3);hold on;stairs(z.time_s,z.hall_valid,'LineWidth',1.2);xline(0.03,':');ylabel('code / valid');xlabel('time / s');grid on;legend('Hall code','valid','Location','eastoutside');
+exportgraphics(fig,fullfile(a,'hall_sequence_direction_invalid.png'),'Resolution',180);close(fig);fprintf('Generated chapter 09 MATLAB Hall figure. scenarios=%d figures=1\n',height(s));

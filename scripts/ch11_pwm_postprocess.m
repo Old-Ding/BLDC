@@ -1,0 +1,7 @@
+script_dir=fileparts(mfilename('fullpath'));root_dir=fileparts(script_dir);w=fullfile(root_dir,'waveforms','11-pwm-deadtime');a=fullfile(root_dir,'assets','11-pwm-deadtime');if ~exist(a,'dir');mkdir(a);end
+l=readtable(fullfile(w,'plecs_duty_025.csv'),'VariableNamingRule','preserve');m=readtable(fullfile(w,'plecs_duty_050.csv'),'VariableNamingRule','preserve');h=readtable(fullfile(w,'plecs_duty_075.csv'),'VariableNamingRule','preserve');s=readtable(fullfile(w,'plecs_pwm_summary.csv'),'VariableNamingRule','preserve');
+fig=figure('Color','w','Position',[100 80 1550 1050]);tl=tiledlayout(fig,3,1,'TileSpacing','compact','Padding','compact');title(tl,'Hall six-step PWM duty and deadtime');idx=m.time_s>=0.048;
+nexttile;stairs(m.time_s(idx)*1e3,m.cmd_a(idx),'LineWidth',1.0);hold on;stairs(m.time_s(idx)*1e3,m.cmd_b(idx),'LineWidth',1.0);stairs(m.time_s(idx)*1e3,m.cmd_c(idx),'LineWidth',1.0);ylabel('phase command');grid on;legend('A','B','C','Location','eastoutside');
+nexttile;plot(l.time_s,l.speed_rad_s,'LineWidth',1.3);hold on;plot(m.time_s,m.speed_rad_s,'LineWidth',1.3);plot(h.time_s,h.speed_rad_s,'LineWidth',1.3);ylabel('\omega_m / rad/s');grid on;legend('25%','50%','75%','Location','eastoutside');
+nexttile;plot(l.time_s,l.ia_A,'LineWidth',1.0);hold on;plot(m.time_s,m.ia_A,'LineWidth',1.0);plot(h.time_s,h.ia_A,'LineWidth',1.0);ylabel('i_a / A');xlabel('time / s');grid on;
+exportgraphics(fig,fullfile(a,'pwm_duty_comparison.png'),'Resolution',180);close(fig);fprintf('Generated chapter 11 MATLAB PWM figure. scenarios=%d figures=1\n',height(s));

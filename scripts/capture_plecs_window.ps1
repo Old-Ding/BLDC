@@ -52,6 +52,12 @@ public static class PlecsWindowCapture
     [DllImport("user32.dll")]
     public static extern bool IsWindowVisible(IntPtr hWnd);
 
+    [DllImport("user32.dll")]
+    public static extern bool SetProcessDPIAware();
+
+    [DllImport("user32.dll")]
+    public static extern uint GetDpiForWindow(IntPtr hWnd);
+
     public static IntPtr FindPlecsWindow(string titleNeedle)
     {
         IntPtr match = IntPtr.Zero;
@@ -81,6 +87,9 @@ public static class PlecsWindowCapture
 }
 '@
 
+# GetWindowRect 和 PrintWindow 必须使用同一像素尺度，否则高 DPI 下会裁掉右下区域。
+[void][PlecsWindowCapture]::SetProcessDPIAware()
+
 $titleNeedle = $TitlePattern.Trim('*')
 $windowHandle = [PlecsWindowCapture]::FindPlecsWindow($titleNeedle)
 if ($windowHandle -eq [IntPtr]::Zero) {
@@ -95,11 +104,17 @@ if (-not [PlecsWindowCapture]::GetWindowRect($windowHandle, [ref]$rect)) {
     throw "Failed to read the PLECS window rectangle."
 }
 
-$width = $rect.Right - $rect.Left
-$height = $rect.Bottom - $rect.Top
-if ($width -lt 200 -or $height -lt 200) {
-    throw "Unexpected PLECS window size: ${width}x${height}."
+$logicalWidth = $rect.Right - $rect.Left
+$logicalHeight = $rect.Bottom - $rect.Top
+if ($logicalWidth -lt 200 -or $logicalHeight -lt 200) {
+    throw "Unexpected PLECS window size: ${logicalWidth}x${logicalHeight}."
 }
+
+$dpi = [PlecsWindowCapture]::GetDpiForWindow($windowHandle)
+if ($dpi -eq 0) { $dpi = 96 }
+$scale = [double]$dpi / 96.0
+$width = [int][Math]::Ceiling($logicalWidth * $scale)
+$height = [int][Math]::Ceiling($logicalHeight * $scale)
 
 $output = [System.IO.Path]::GetFullPath($OutputPath)
 $directory = [System.IO.Path]::GetDirectoryName($output)

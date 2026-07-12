@@ -1,0 +1,5 @@
+scenario,transition_count,observed_sequence,direction,illegal_samples,result
+forward,6,5-1-3-2-6-4-5,forward,0,PASS
+reverse,7,5-4-6-2-3-1-5-4,reverse,0,PASS
+invalid_000,0,0,invalid,701,PASS
+invalid_111,0,7,invalid,701,PASS

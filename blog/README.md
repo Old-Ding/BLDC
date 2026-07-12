@@ -19,12 +19,18 @@
 |---:|---|---|---|
 | 06 | 开环电角度如何旋转 | [`06-open-loop-electrical-angle.md`](06-open-loop-electrical-angle.md) | PLECS 开环频率实验，三轮复核通过 |
 | 07 | 静止启动与加速斜坡 | [`07-startup-ramp.md`](07-startup-ramp.md) | PLECS 定位/斜坡实验，三轮复核通过 |
+| 08 | 开环失步根因与诊断 | [`08-open-loop-desynchronization.md`](08-open-loop-desynchronization.md) | PLECS 三场景，三轮复核通过 |
+| 09 | Hall 序列、扇区与方向 | [`09-hall-sequence-and-direction.md`](09-hall-sequence-and-direction.md) | 正反转与非法码，三轮复核通过 |
+| 10 | Hall 换相与安装偏置 | [`10-hall-commutation-offset.md`](10-hall-commutation-offset.md) | 偏置扫参与全关边界，三轮复核通过 |
+| 11 | PWM 占空比和死区 | [`11-pwm-duty-and-deadtime.md`](11-pwm-duty-and-deadtime.md) | 真实 10 kHz PWM，三轮复核通过 |
+| 12 | Hall 边沿测速与滤波 | [`12-hall-edge-speed-estimation.md`](12-hall-edge-speed-estimation.md) | 五速度/方向/超时场景，三轮复核通过 |
+| 13 | 速度 PI、限幅与抗饱和 | [`13-speed-pi-antiwindup.md`](13-speed-pi-antiwindup.md) | 四场景 PLECS PI，三轮复核通过 |
+| 14 | 完整 Hall 六步闭环 | [`14-complete-hall-closed-loop.md`](14-complete-hall-closed-loop.md) | 五场景综合验收，三轮复核通过 |
 
 ## 后续阶段
 
 | 阶段 | 篇章 | 目标 |
 |---|---|---|
-| B | 08-14 | 失步诊断、Hall、PWM、测速、速度 PI 和完整六步闭环 |
 | C | 15-22 | C 编译、单元测试、定点化、外设映射、ISR、保护、CI/HIL 和硬件上电 |
 | D | 23-29 | 反电动势过零、消隐滤波、无感接管、提前角和硬件验证 |
 | E | 30-36 | Clarke/Park、电流环、SVPWM、FOC、弱磁和路线比较 |

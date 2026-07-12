@@ -8,12 +8,12 @@
 
 | 项目 | 当前结果 |
 |---|---|
-| 当前阶段 | 阶段 B：开环启动与 Hall 六步闭环 |
-| 最新完成实验 | 第 07 章 PLECS 定位与开环频率斜坡 |
-| 最新文章 | [`blog/07-startup-ramp.md`](blog/07-startup-ramp.md) |
-| 复现说明 | [`docs/07-startup-ramp-reproduce.md`](docs/07-startup-ramp-reproduce.md) |
-| 最新模型 | [`models/plecs/ch07_startup_ramp/ch07_startup_ramp.plecs`](models/plecs/ch07_startup_ramp/ch07_startup_ramp.plecs) |
-| 下一章 | 第 08 章开环失步根因与相位差诊断 |
+| 当前阶段 | 第一季完成：功率级、开环启动与 Hall 六步闭环 |
+| 最新完成实验 | 第 14 章完整 Hall 六步闭环五场景验收 |
+| 最新文章 | [`blog/14-complete-hall-closed-loop.md`](blog/14-complete-hall-closed-loop.md) |
+| 复现说明 | [`docs/14-complete-hall-closed-loop-reproduce.md`](docs/14-complete-hall-closed-loop-reproduce.md) |
+| 最新模型 | [`models/plecs/ch14_complete_hall_closed_loop/ch14_complete_hall_closed_loop.plecs`](models/plecs/ch14_complete_hall_closed_loop/ch14_complete_hall_closed_loop.plecs) |
+| 下一章 | 第 15 章可编译 C 控制核心与主机单元测试 |
 | GitHub | https://github.com/Old-Ding/BLDC |
 
 ## 工具分工
@@ -37,6 +37,13 @@
 | 05 | [`六个有效桥状态为什么要按这个顺序切换`](blog/05-six-step-commutation-table.md) | PLECS C-Script 六步表、正序/反序/全关 | 完成 |
 | 06 | [`命令电角在旋转，转子为什么可能不动`](blog/06-open-loop-electrical-angle.md) | PLECS 慢/快开环场、601 点/场景、原生 Scope 与 MATLAB 图 | 完成 |
 | 07 | [`从静止到旋转：BLDC 定位与开环频率斜坡`](blog/07-startup-ramp.md) | PLECS 定位/斜坡与直接高频、15 路数据、相位差与大电流边界 | 完成 |
+| 08 | [`开环为什么会失步`](blog/08-open-loop-desynchronization.md) | PLECS 正常/过快/负载阶跃、速度与滑移圈数 | 完成 |
+| 09 | [`Hall 序列怎样表示位置和方向`](blog/09-hall-sequence-and-direction.md) | 正反序列、000/111 非法码、PLECS 原生 Hall Scope | 完成 |
+| 10 | [`Hall 怎样驱动六步换相`](blog/10-hall-commutation-offset.md) | 六个偏置、反向表、全关与电磁转矩证据 | 完成 |
+| 11 | [`PWM duty 与死区怎样进入六步换相`](blog/11-pwm-duty-and-deadtime.md) | 10 kHz PWM、三档 duty、零/大死区 | 完成 |
+| 12 | [`Hall 边沿怎样估算连续转速`](blog/12-hall-edge-speed-estimation.md) | 慢/中/快/反转/停止超时、量化与滤波 | 完成 |
+| 13 | [`速度 PI、限幅与积分抗饱和`](blog/13-speed-pi-antiwindup.md) | 目标/负载阶跃、抗饱和对照、4/4 PASS | 完成 |
+| 14 | [`完整 Hall 六步闭环验收`](blog/14-complete-hall-closed-loop.md) | 零速启动、目标/负载、非法 Hall、过载，5/5 PASS | 完成 |
 
 ## 第 01 章快速复现
 
