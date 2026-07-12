@@ -8,10 +8,10 @@
 |---:|---|---|---|
 | 00 | BLDC 完整学习路线 | [`00-bldc-learning-route.md`](00-bldc-learning-route.md) | 路线入口 |
 | 01 | 让 BLDC 在 PLECS 里真正转起来 | [`01-bldc-control-chain.md`](01-bldc-control-chain.md) | PLECS 实验包完成，三轮复核通过 |
-| 02 | 三相桥的上桥、下桥与悬空 | [`02-three-phase-bridge.md`](02-three-phase-bridge.md) | 旧状态级草稿，待真实 PLECS 功率桥重建 |
-| 03 | 电机参数、机械角度和电角度 |  | 未实施 |
-| 04 | 梯形反电动势与电磁转矩 |  | 未实施 |
-| 05 | 120° 导通和六步换相表 |  | 未实施 |
+| 02 | 三相桥的上桥、下桥与悬空 | [`02-three-phase-bridge.md`](02-three-phase-bridge.md) | 真实 PLECS 功率桥，三轮复核通过 |
+| 03 | 电机参数、机械角度和电角度 | [`03-mechanical-and-electrical-angle.md`](03-mechanical-and-electrical-angle.md) | PLECS 极对数实验，三轮复核通过 |
+| 04 | 梯形反电动势与电磁转矩 | [`04-back-emf-and-torque.md`](04-back-emf-and-torque.md) | PLECS 功率等式实验，三轮复核通过 |
+| 05 | 120° 导通和六步换相表 | [`05-six-step-commutation-table.md`](05-six-step-commutation-table.md) | PLECS 六步序列实验，三轮复核通过 |
 
 ## 后续阶段
 

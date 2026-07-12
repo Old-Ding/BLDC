@@ -112,12 +112,13 @@ FOC 只在 Hall 六步主线和固件工程完成后进入。这样可复用已�
 ## 当前实施顺序
 
 ```text
-01 发布复核
-  -> 02 重建真实三相桥 PLECS 模型
-  -> 02 场景、CSV、Scope 和报告
-  -> 02 教学正文
-  -> GitHub
-  -> CSDN 草稿
+02 真实三相桥
+  -> 03 机械角和电角
+  -> 04 反电动势功率和转矩
+  -> 05 六步表
+  -> 06 开环电角度
+  -> 07 启动斜坡
+  -> 08 失步诊断
 ```
 
 旧 `learning_model/steps` 中的 `Clock -> C-Script -> Scope` 文件只作为历史信号拆层参考。正式章节的新主证据统一进入 `models/plecs`、`waveforms`、`assets` 和 `reports`。

@@ -1,0 +1,8 @@
+scenario,phase_cmd,final_ia_A,final_ib_A,final_ic_A,current_sum_peak_A,peak_line_voltage_V,tail_torque_mean_Nm,result,reason
+Apos_Bneg,1 -1 0,14.650904100735408,-14.650904100735408,0.0,0.0,48.0,5.628105567661288,PASS,high_current_A=14.6509; low_current_A=-14.6509; float_current_A=0.0000; current_sum_peak_A=0.000e+00; peak_line_voltage_V=48.0000
+Apos_Cneg,1 0 -1,14.650904100735408,0.0,-14.650904100735408,0.0,48.0,-5.628105567661288,PASS,high_current_A=14.6509; low_current_A=-14.6509; float_current_A=0.0000; current_sum_peak_A=0.000e+00; peak_line_voltage_V=48.0000
+Bpos_Cneg,0 1 -1,0.0,14.242591341511044,-14.242591341511044,0.0,48.0,-10.935400199083118,PASS,high_current_A=14.2426; low_current_A=-14.2426; float_current_A=0.0000; current_sum_peak_A=0.000e+00; peak_line_voltage_V=48.0000
+Bpos_Aneg,-1 1 0,-14.65163634978932,14.65163634978932,0.0,0.0,48.0,-5.592118469348666,PASS,high_current_A=14.6516; low_current_A=-14.6516; float_current_A=0.0000; current_sum_peak_A=0.000e+00; peak_line_voltage_V=48.0000
+Cpos_Aneg,-1 0 1,-14.65163634978932,0.0,14.65163634978932,0.0,48.0,5.592118469348666,PASS,high_current_A=14.6516; low_current_A=-14.6516; float_current_A=0.0000; current_sum_peak_A=0.000e+00; peak_line_voltage_V=48.0000
+Cpos_Bneg,0 -1 1,0.0,-14.242591341511044,14.242591341511044,0.0,48.0,10.935400199083118,PASS,high_current_A=14.2426; low_current_A=-14.2426; float_current_A=0.0000; current_sum_peak_A=0.000e+00; peak_line_voltage_V=48.0000
+all_off,0 0 0,0.0,0.0,0.0,0.0,0.0,0.0,PASS,peak_phase_current_A=0; peak_line_voltage_V=0

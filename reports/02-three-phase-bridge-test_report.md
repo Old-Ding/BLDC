@@ -1,36 +1,37 @@
-# 第 02 篇测试报告：三相桥状态模型
-
-生成时间：2026-07-09 17:20:27
+# 第 02 章 PLECS 三相桥实验报告
 
 ## 参数摘要
 
-- 采样周期：50 us
-- 每个场景采样点：80
-- 单场景持续时间：4.000 ms
-- 状态编码：HIGH=1，LOW=-1，FLOAT=0，FAULT=2
-- 源码参照：`learning_model/steps/step_01_three_phase_bridge/bridge_state.c`
-- 生成脚本：`scripts/ch02_three_phase_bridge_tests.m`
+| 参数 | 数值 | 单位 |
+|---|---:|---|
+| 直流母线电压 | 48 | V |
+| BLDC 相电阻 | 0.388 | ohm |
+| BLDC 相电感 | 2.84 | mH |
+| 初始机械角速度 | 0 | rad/s |
+| 单场景时长 | 2 | ms |
+| 输出采样间隔 | 10 | us |
 
-## 测试结果
+## PLECS 场景结果
 
-| 场景 | Gates | 期望状态 | 实际状态 | 期望直通 | 实际直通 | 结果 | 说明 |
-|---|---|---|---|---:|---:|---|---|
-| `normal_AH_BL` | AH=1 BH=0 CH=0 AL=0 BL=1 CL=0 | A=HIGH B=LOW C=FLOAT | A=HIGH B=LOW C=FLOAT | 0 | 0 | PASS | A 相接正母线，B 相接负母线，C 相悬空 |
-| `normal_BH_CL` | AH=0 BH=1 CH=0 AL=0 BL=0 CL=1 | A=FLOAT B=HIGH C=LOW | A=FLOAT B=HIGH C=LOW | 0 | 0 | PASS | B 相接正母线，C 相接负母线，A 相悬空 |
-| `normal_CH_AL` | AH=0 BH=0 CH=1 AL=1 BL=0 CL=0 | A=LOW B=FLOAT C=HIGH | A=LOW B=FLOAT C=HIGH | 0 | 0 | PASS | C 相接正母线，A 相接负母线，B 相悬空 |
-| `all_off` | AH=0 BH=0 CH=0 AL=0 BL=0 CL=0 | A=FLOAT B=FLOAT C=FLOAT | A=FLOAT B=FLOAT C=FLOAT | 0 | 0 | PASS | 六个桥臂全关，三相都悬空 |
-| `fault_AH_AL` | AH=1 BH=0 CH=0 AL=1 BL=0 CL=0 | A=FAULT B=FLOAT C=FLOAT | A=FAULT B=FLOAT C=FLOAT | 1 | 1 | PASS | A 相上下桥同时导通，进入直通故障 |
-| `fault_BH_BL` | AH=0 BH=1 CH=0 AL=0 BL=1 CL=0 | A=FLOAT B=FAULT C=FLOAT | A=FLOAT B=FAULT C=FLOAT | 1 | 1 | PASS | B 相上下桥同时导通，进入直通故障 |
+| 场景 | 三值相命令 | 末值 ia/A | 末值 ib/A | 末值 ic/A | 峰值线电压/V | 结果 |
+|---|---|---:|---:|---:|---:|---|
+| Apos_Bneg | `1 -1 0` | 14.6509 | -14.6509 | 0.0000 | 48.0000 | PASS |
+| Apos_Cneg | `1 0 -1` | 14.6509 | 0.0000 | -14.6509 | 48.0000 | PASS |
+| Bpos_Cneg | `0 1 -1` | 0.0000 | 14.2426 | -14.2426 | 48.0000 | PASS |
+| Bpos_Aneg | `-1 1 0` | -14.6516 | 14.6516 | 0.0000 | 48.0000 | PASS |
+| Cpos_Aneg | `-1 0 1` | -14.6516 | 0.0000 | 14.6516 | 48.0000 | PASS |
+| Cpos_Bneg | `0 -1 1` | 0.0000 | -14.2426 | 14.2426 | 48.0000 | PASS |
+| all_off | `0 0 0` | 0.0000 | 0.0000 | 0.0000 | 0.0000 | PASS |
 
-## 曲线文件
+## 六路门极组合审计
 
-| 文件 | 作用 |
-|---|---|
-| `assets/02-three-phase-bridge/bridge_state_scenarios.png` | 六个 gate、三相状态和直通标志的场景时序 |
-| `assets/02-three-phase-bridge/bridge_state_fault_matrix.png` | 正常导通与直通故障的状态矩阵对比 |
-| `waveforms/02-three-phase-bridge/bridge_state_timeseries.csv` | 图 1 背后的逐点数据 |
-| `waveforms/02-three-phase-bridge/bridge_state_summary.csv` | 场景级 PASS/FAIL 汇总 |
+- 全组合：64 组。
+- 同桥臂直通：37 组。
+- 符合 120 度六步导通：6 组。
+- 无直通但不属于六步有效矢量：21 组。
 
-## 边界说明
+## 证据边界
 
-本报告只验证 6 路桥臂命令到 A/B/C 相状态和直通标志的映射。它不验证死区时间、驱动芯片保护、电流变化、电机反电动势或机械负载响应。
+PLECS 结果证明三值相命令经过真实两电平 IGBT 桥后，会形成对应的线电压和绕组电流路径。
+64 组门极表用于区分同桥臂直通、六步有效矢量和其他安全组合。
+本章不把三值命令误称为六路物理门极，也不声称已经包含驱动器传播延迟、死区和器件损耗。

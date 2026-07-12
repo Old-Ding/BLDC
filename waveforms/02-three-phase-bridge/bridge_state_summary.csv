@@ -1,7 +1,0 @@
-scenario,gates,expected_phase_state,actual_phase_state,expected_shoot_through,actual_shoot_through,result,note
-normal_AH_BL,AH=1 BH=0 CH=0 AL=0 BL=1 CL=0,A=HIGH B=LOW C=FLOAT,A=HIGH B=LOW C=FLOAT,0,0,PASS,A 相接正母线，B 相接负母线，C 相悬空
-normal_BH_CL,AH=0 BH=1 CH=0 AL=0 BL=0 CL=1,A=FLOAT B=HIGH C=LOW,A=FLOAT B=HIGH C=LOW,0,0,PASS,B 相接正母线，C 相接负母线，A 相悬空
-normal_CH_AL,AH=0 BH=0 CH=1 AL=1 BL=0 CL=0,A=LOW B=FLOAT C=HIGH,A=LOW B=FLOAT C=HIGH,0,0,PASS,C 相接正母线，A 相接负母线，B 相悬空
-all_off,AH=0 BH=0 CH=0 AL=0 BL=0 CL=0,A=FLOAT B=FLOAT C=FLOAT,A=FLOAT B=FLOAT C=FLOAT,0,0,PASS,六个桥臂全关，三相都悬空
-fault_AH_AL,AH=1 BH=0 CH=0 AL=1 BL=0 CL=0,A=FAULT B=FLOAT C=FLOAT,A=FAULT B=FLOAT C=FLOAT,1,1,PASS,A 相上下桥同时导通，进入直通故障
-fault_BH_BL,AH=0 BH=1 CH=0 AL=0 BL=1 CL=0,A=FLOAT B=FAULT C=FLOAT,A=FLOAT B=FAULT C=FLOAT,1,1,PASS,B 相上下桥同时导通，进入直通故障

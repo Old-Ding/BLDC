@@ -8,12 +8,12 @@
 
 | 项目 | 当前结果 |
 |---|---|
-| 当前阶段 | 阶段 A：功率级与电机物理基础 |
-| 最新完成实验 | 第 01 章 PLECS BLDC 基准实验 |
-| 最新文章 | [`blog/01-bldc-control-chain.md`](blog/01-bldc-control-chain.md) |
-| 复现说明 | [`docs/01-bldc-control-chain-reproduce.md`](docs/01-bldc-control-chain-reproduce.md) |
-| 最新模型 | [`models/plecs/ch01_bldc_baseline/ch01_bldc_baseline.plecs`](models/plecs/ch01_bldc_baseline/ch01_bldc_baseline.plecs) |
-| 下一章 | 第 02 章真实三相桥开关状态实验 |
+| 当前阶段 | 阶段 A 已完成，进入阶段 B：Hall 六步闭环 |
+| 最新完成实验 | 第 05 章 PLECS 120 度导通与六步序列 |
+| 最新文章 | [`blog/05-six-step-commutation-table.md`](blog/05-six-step-commutation-table.md) |
+| 复现说明 | [`docs/05-six-step-commutation-reproduce.md`](docs/05-six-step-commutation-reproduce.md) |
+| 最新模型 | [`models/plecs/ch05_six_step_sequence/ch05_six_step_sequence.plecs`](models/plecs/ch05_six_step_sequence/ch05_six_step_sequence.plecs) |
+| 下一章 | 第 06 章开环电角度与换相频率 |
 | GitHub | https://github.com/Old-Ding/BLDC |
 
 ## 工具分工
@@ -30,8 +30,11 @@
 | 篇章 | 标题 | 证据 | 状态 |
 |---:|---|---|---|
 | 00 | [`BLDC 完整学习路线`](blog/00-bldc-learning-route.md) | 路线和仓库入口 | 路线文章 |
-| 01 | [`让 BLDC 在 PLECS 里真正转起来`](blog/01-bldc-control-chain.md) | PLECS 模型、2 个场景、1202 行逐点数据、4 张图、报告 | 三轮复核通过，待同步 GitHub/CSDN |
-| 02 | [`三相桥的 6 个开关`](blog/02-three-phase-bridge.md) | 旧 MATLAB 状态图 | 草稿；需重建真实 PLECS 功率桥后再发布 |
+| 01 | [`让 BLDC 在 PLECS 里真正转起来`](blog/01-bldc-control-chain.md) | PLECS 模型、2 个场景、1202 行逐点数据、4 张图、报告 | 完成 |
+| 02 | [`三值相命令怎样变成真实电流`](blog/02-three-phase-bridge.md) | 真实 IGBT 桥、7 场景、64 组门极审计、3 张图 | 完成 |
+| 03 | [`机械转一圈，电角度为什么可能转四圈`](blog/03-mechanical-and-electrical-angle.md) | PLECS 极对数场景、角度解包、扇区图 | 完成 |
+| 04 | [`电流大小相近，转矩方向为什么不同`](blog/04-back-emf-and-torque.md) | 1703 点 e*i 与 Te*omega 核对、再生场景 | 完成 |
+| 05 | [`六个有效桥状态为什么要按这个顺序切换`](blog/05-six-step-commutation-table.md) | PLECS C-Script 六步表、正序/反序/全关 | 完成 |
 
 ## 第 01 章快速复现
 

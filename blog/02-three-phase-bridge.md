@@ -1,234 +1,238 @@
-# BLDC 三相桥的 6 个开关：先把 AH/BH/CH/AL/BL/CL 翻译成相状态
+# 02 三值相命令怎样变成真实电流：BLDC 三相桥的上桥、下桥与悬空
 
-很多人第一次看 BLDC 六步波形时，会直接盯着 PWM 脉冲或换相表。但更底层的问题是：给定 `AH/BH/CH/AL/BL/CL` 六个 gate 命令后，A/B/C 三相到底分别接到了正母线、负母线，还是悬空。
+`phase_cmd = [1, -1, 0]` 不是六路 IGBT 门极波形。它只表达三个桥臂各自要进入什么状态：A 相接正母线，B 相接负母线，C 相悬空。
 
-如果这个问题没有先讲清楚，后面讨论换相表、Hall、PWM、速度环时，就会把“谁决定导通相”和“谁调节能量”混在一起。
-
-配套仓库：
-
-[https://github.com/Old-Ding/BLDC](https://github.com/Old-Ding/BLDC)
-
-## 先看三相桥本体
-
-三相桥可以先拆成三个半桥：
-
-| 相 | 上桥 | 下桥 | 输出点 |
-|---|---|---|---|
-| A 相 | `AH` | `AL` | A |
-| B 相 | `BH` | `BL` | B |
-| C 相 | `CH` | `CL` | C |
-
-每一相只需要先回答一个问题：上桥、下桥分别开还是关。三相桥的状态判断，就是把这个问题对 A/B/C 三相各做一次。
-
-本章先固定这一层：
+真正需要建立的因果链是：
 
 ```text
-AH/BH/CH/AL/BL/CL
-  -> A/B/C 相状态
-  -> shoot_through
+AH/BH/CH/AL/BL/CL 六路门极请求
+  -> 每个桥臂检查是否直通
+  -> A/B/C 三值相命令
+  -> PLECS 两电平 IGBT 三相桥
+  -> 线电压
+  -> BLDC 绕组电流
 ```
 
-后续内容按这个顺序展开：
+本章把这条链完整跑通。六路门极组合由真值表审计，功率级和绕组响应由 PLECS 计算，MATLAB 只读取 PLECS CSV 做对比图。
 
-| 先后顺序 | 要看懂什么 |
-|---|---|
-| 1 | 单相半桥如何从 `high/low` 变成 `HIGH/LOW/FLOAT/FAULT` |
-| 2 | 三相桥如何把 A/B/C 三个半桥组合起来 |
-| 3 | 正常双管导通为什么不是直通 |
-| 4 | 同一相上下桥同时导通为什么一定要标成故障 |
+配套仓库：[https://github.com/Old-Ding/BLDC](https://github.com/Old-Ding/BLDC)
 
-## 状态编码
+## 先看一个桥臂，不要先背六步表
 
-为了让 CSV 和图能直接读，实验使用下面的状态编码：
+每一相都是一个半桥。以 A 相为例，上管是 `AH`，下管是 `AL`，两者组合只有四种结果。
 
-| 状态 | 编码 | 含义 |
-|---|---:|---|
-| `HIGH` | `1` | 该相通过上桥接正母线 |
-| `LOW` | `-1` | 该相通过下桥接负母线 |
-| `FLOAT` | `0` | 该相上下桥都关闭，处于悬空状态 |
-| `FAULT` | `2` | 同一相上下桥同时导通 |
+| AH | AL | A 相状态 | 三值编码 | 物理含义 |
+|---:|---:|---|---:|---|
+| 0 | 0 | `FLOAT` | 0 | 上下管都关断，A 相端不被桥臂主动钳位 |
+| 1 | 0 | `HIGH` | +1 | A 相接直流母线正端 |
+| 0 | 1 | `LOW` | -1 | A 相接直流母线负端 |
+| 1 | 1 | `FAULT` | 不生成 | 同一桥臂上下管同时请求导通，形成直通请求 |
 
-本章参数只服务于状态级测试：每个场景固定一组 gate，观察 A/B/C 状态和直通标志是否符合期望。
+B、C 两相使用完全相同的规则。三值相命令只是把三个半桥的合法状态压缩成一个长度为 3 的向量。
 
-| 参数 | 数值 | 单位 | 说明 |
+因此：
+
+```text
+AH=1, BL=1，其余门极为 0
+  -> A=+1, B=-1, C=0
+  -> phase_cmd = [1, -1, 0]
+```
+
+而 `AH=1, AL=1` 不会得到某个正常三值命令。它首先被归类为同桥臂直通请求。
+
+## PLECS 模型里的三值输入来自哪里
+
+本章正式模型是：
+
+```text
+models/plecs/ch02_three_phase_bridge/ch02_three_phase_bridge.plecs
+```
+
+它由第 01 篇已经跑通的 BLDC 功率级母模型机械派生，保留以下真实对象：
+
+- 48 V 直流电源；
+- PLECS `2-Level IGBT Conv.` 两电平三相桥；
+- 三相电压、电流测量；
+- PLECS `BLDC Machine` 绕组和机械端口。
+
+本章只把第 01 篇的电流控制器替换为可配置三值相命令。PLECS 变流器的输入端接受每相 `+1/0/-1` 状态，并在内部驱动对应桥臂。这样可以把“控制接口”和“六路器件状态”分开观察，又不会把三值命令误写成六路门极。
+
+## 参数先固定，再看波形
+
+| 参数 | 数值 | 单位 | 本章用途 |
 |---|---:|---|---|
-| 采样周期 | 50 | us | 用于生成可读时序图 |
-| 每个场景采样点 | 80 | 点 | 每个 gate 组合保持固定时间 |
-| 单场景持续时间 | 4.000 | ms | 让图中每个场景分段清楚 |
-| 测试场景数 | 6 | 个 | 3 个正常导通、1 个全关、2 个直通故障 |
+| 直流母线电压 | 48 | V | 决定有效线电压幅值 |
+| BLDC 相电阻 | 0.388 | ohm | 决定电流稳态值和铜耗 |
+| BLDC 相电感 | 2.84 | mH | 决定电流上升速度 |
+| 极对数 | 1 | - | 沿用母模型，本章不研究极对数 |
+| 初始机械角速度 | 0 | rad/s | 先隔离桥和绕组的电流建立过程 |
+| 单场景仿真时间 | 2 | ms | 足以观察 R-L 电流上升且转子角度变化仍很小 |
+| 输出采样间隔 | 10 | us | 每个场景导出 201 个时刻 |
 
-## 半桥状态如何判断
+本章不是用理想电阻代替电机。BLDC Machine 仍在电路里，所以 CSV 同时包含反电动势、转速和电磁转矩；只是 2 ms 时间窗让问题集中在桥命令、线电压和绕组电流上。
 
-单相半桥只有四种结果：
+## 七个场景覆盖六个有效矢量和全关
 
-| 上桥 | 下桥 | 相状态 | 直通 |
-|---:|---:|---|---:|
-| 0 | 0 | `FLOAT` | 0 |
-| 1 | 0 | `HIGH` | 0 |
-| 0 | 1 | `LOW` | 0 |
-| 1 | 1 | `FAULT` | 1 |
+| 场景 | 三值相命令 | 导通路径 | 悬空相 |
+|---|---|---|---|
+| `Apos_Bneg` | `[+1,-1,0]` | DC+ -> A 相 -> B 相 -> DC- | C |
+| `Apos_Cneg` | `[+1,0,-1]` | DC+ -> A 相 -> C 相 -> DC- | B |
+| `Bpos_Cneg` | `[0,+1,-1]` | DC+ -> B 相 -> C 相 -> DC- | A |
+| `Bpos_Aneg` | `[-1,+1,0]` | DC+ -> B 相 -> A 相 -> DC- | C |
+| `Cpos_Aneg` | `[-1,0,+1]` | DC+ -> C 相 -> A 相 -> DC- | B |
+| `Cpos_Bneg` | `[0,-1,+1]` | DC+ -> C 相 -> B 相 -> DC- | A |
+| `all_off` | `[0,0,0]` | 无主动导通路径 | A/B/C |
 
-这就是 `bridge_state.c` 里的核心规则。它不需要知道当前是第几步换相，也不需要知道 duty 是多少。
+这七组不是换相时序。每次 PLECS 仿真只固定一个状态，从零初值开始，目的是先证明每个状态对应的电流路径。
 
-最小逻辑可以读成：
+## PLECS 原生 Scope：A 相送电、B 相回流、C 相悬空
+
+![PLECS 原生 Scope 中的 A 正 B 负绕组电流](../assets/02-three-phase-bridge/plecs_scope_Apos_Bneg.png)
+
+这是 PLECS 原生 Scope 窗口截图，不是 MATLAB 重画图。读取它时先看三条曲线的方向：
+
+- A 相电流从 0 向正方向上升；
+- B 相电流以相同幅值向负方向下降；
+- C 相电流保持在 0 附近。
+
+三相电流满足：
 
 ```text
-如果 high=1 且 low=1：该相 FAULT，并置 shoot_through=1
-否则 high=1：该相 HIGH
-否则 low=1：该相 LOW
-否则：该相 FLOAT
+ia + ib + ic = 0
 ```
 
-三相桥只是把这个半桥规则分别应用到 A、B、C 三相。
+这说明电流从 A 相进入，经星形绕组内部节点流入 B 相，再由 B 下桥臂返回负母线。C 桥臂悬空时，C 相没有形成主动电流路径。
 
-对应的 C 源码在：
+第 01 篇已经证明三相电流可以形成转矩；本章进一步把其中一个电流状态追溯到了桥臂命令和母线电压。
+
+## 为什么 2 ms 时电流约为 14.65 A
+
+在 `Apos_Bneg` 场景开始的极短时间内，转速接近 0，A、B 两相绕组串联在 48 V 母线上。忽略很小的反电动势，电流近似满足：
 
 ```text
-learning_model/steps/step_01_three_phase_bridge/bridge_state.c
+2L * di/dt + 2R * i = Udc
 ```
 
-这份 C 文件只表达三相桥状态判断，不产生换相顺序，也不调 PWM。
+代入 `R=0.388 ohm`、`L=2.84 mH`、`Udc=48 V`：
 
-## 场景测试结果
+```text
+i(t) = Udc/(2R) * (1 - exp(-R/L * t))
+```
 
-本篇用 6 个场景覆盖正常状态、全关状态和故障状态：
+在 `t=2 ms` 时，R-L 近似值约为 14.8 A。PLECS 导出的结果是：
 
-| 场景 | Gates | 实际状态 | shoot_through | 结果 |
-|---|---|---|---:|---|
-| `normal_AH_BL` | `AH=1 BH=0 CH=0 AL=0 BL=1 CL=0` | `A=HIGH B=LOW C=FLOAT` | 0 | PASS |
-| `normal_BH_CL` | `AH=0 BH=1 CH=0 AL=0 BL=0 CL=1` | `A=FLOAT B=HIGH C=LOW` | 0 | PASS |
-| `normal_CH_AL` | `AH=0 BH=0 CH=1 AL=1 BL=0 CL=0` | `A=LOW B=FLOAT C=HIGH` | 0 | PASS |
-| `all_off` | `AH=0 BH=0 CH=0 AL=0 BL=0 CL=0` | `A=FLOAT B=FLOAT C=FLOAT` | 0 | PASS |
-| `fault_AH_AL` | `AH=1 BH=0 CH=0 AL=1 BL=0 CL=0` | `A=FAULT B=FLOAT C=FLOAT` | 1 | PASS |
-| `fault_BH_BL` | `AH=0 BH=1 CH=0 AL=0 BL=1 CL=0` | `A=FLOAT B=FAULT C=FLOAT` | 1 | PASS |
+| 量 | 2 ms 实测值 |
+|---|---:|
+| `ia` | +14.6509 A |
+| `ib` | -14.6509 A |
+| `ic` | 0 A |
+| `vab` 峰值 | 48 V |
+| 机械角速度 | 3.0767 rad/s |
 
-这 6 个场景由 MATLAB 脚本生成 CSV、PNG 和测试报告。这里的图是 MATLAB 状态级测试图，不是 PLECS Scope 截图，也不是完整电机仿真图。它用于验证 `gates -> phase state -> shoot_through` 这层离散逻辑。
+近似计算和 PLECS 结果接近，说明电流幅值不是随意画出的。两相电阻、电感以及开始出现的电磁运动共同决定了它。
 
-## 图 1：gate 到相状态
+## 把命令、线电压和相电流放在同一张图里
 
-![三相桥 gate 与相状态时序](../assets/02-three-phase-bridge/bridge_state_scenarios.png)
+![PLECS CSV 的命令、电压、电流和七场景对比](../assets/02-three-phase-bridge/plecs_bridge_paths.png)
 
-这张图按三层读：
+这张 MATLAB 图只读取 `plecs_Apos_Bneg.csv` 和七场景汇总表。四层应按顺序阅读：
 
-| 子图 | 看什么 | 结论 |
+1. `phase cmd` 固定为 A=+1、B=-1、C=0；
+2. `vab` 立即建立 48 V 线电压；
+3. A、B 相电流受绕组电感限制，不能瞬间跳变；
+4. 六个有效矢量中，总有一相电流为正、一相为负、一相接近 0；全关场景三相均为 0。
+
+七个场景的 PLECS 判定结果如下：
+
+| 场景 | 末值 `ia`/A | 末值 `ib`/A | 末值 `ic`/A | 峰值线电压/V | 结果 |
+|---|---:|---:|---:|---:|---|
+| `Apos_Bneg` | +14.6509 | -14.6509 | 0 | 48 | PASS |
+| `Apos_Cneg` | +14.6509 | 0 | -14.6509 | 48 | PASS |
+| `Bpos_Cneg` | 0 | +14.2426 | -14.2426 | 48 | PASS |
+| `Bpos_Aneg` | -14.6516 | +14.6516 | 0 | 48 | PASS |
+| `Cpos_Aneg` | -14.6516 | 0 | +14.6516 | 48 | PASS |
+| `Cpos_Bneg` | 0 | -14.2426 | +14.2426 | 48 | PASS |
+| `all_off` | 0 | 0 | 0 | 0 | PASS |
+
+PASS 的判据不是“电流必须等于某个手写常数”，而是检查：
+
+- 送电相电流方向为正；
+- 回流相电流方向为负；
+- 悬空相末值电流不超过 2 A；
+- 任意时刻三相电流和接近 0；
+- 有效矢量能建立接近 48 V 的线电压；
+- 全关时电流和线电压保持为 0。
+
+## 64 组门极组合里，为什么只有 6 组是六步有效矢量
+
+六个门极输入各有 0/1 两种状态，总组合数是：
+
+```text
+2^6 = 64
+```
+
+脚本逐组检查每个桥臂，再判断三相状态是否恰好包含一个 `HIGH`、一个 `LOW` 和一个 `FLOAT`。
+
+![六路门极 64 组合分类矩阵](../assets/02-three-phase-bridge/gate_truth_table_matrix.png)
+
+矩阵分成三类：
+
+| 分类 | 数量 | 含义 |
+|---|---:|---|
+| 同桥臂直通请求 | 37 | 至少一相的上、下管同时为 1 |
+| 六步有效矢量 | 6 | 恰好一相高、一相低、一相悬空 |
+| 其他无直通组合 | 21 | 包含全关、单管导通、多个同侧管导通等状态 |
+
+“没有直通”不等于“可以产生六步转矩”。例如只有 `AH=1` 时没有同桥臂冲突，但没有返回路径；`AH=BH=1` 时也没有上下管冲突，但两相都被拉到同一母线端，不能形成期望的两相压差。
+
+因此换相表必须同时满足两个条件：
+
+1. 同桥臂不能同时导通；
+2. 三相状态必须是 `HIGH/LOW/FLOAT` 的一个排列。
+
+## 如何解读本章证据
+
+| 观察到的证据 | 可以得出的结论 | 不要误读成 |
 |---|---|---|
-| `Three-phase bridge gate scenarios` | 六路 gate 在每个场景中的 0/1 状态 | 每个场景只改变桥臂命令，不引入 PWM 或电机动态 |
-| `phase state` | A/B/C 三相对应 `LOW/FLOAT/HIGH/FAULT` | 相状态完全由同相上下桥决定 |
-| `fault flag` | `shoot_through` 是否变为 1 | 只有同一相上下桥同时导通时，直通标志才出现 |
+| PLECS Scope 中 A、B 电流等幅反向，C 电流为 0 | `[+1,-1,0]` 形成 A 到 B 的真实绕组电流路径 | 三值命令就是六路门极波形 |
+| 六个有效矢量均建立 48 V 峰值线电压 | 三相桥能按命令切换送电相和回流相 | 已经实现了自动六步换相 |
+| 64 组中 37 组含同桥臂冲突 | 直通判断必须逐桥臂进行 | 只要有两个门极为 1 就是直通 |
+| `all_off` 的电流和线电压均为 0 | 全关没有主动能量输入 | 全关一定等于硬件安全停机 |
 
-从 `normal_AH_BL` 看，`AH=1`、`BL=1`，所以 A 相是 `HIGH`，B 相是 `LOW`，C 相是 `FLOAT`。这就是六步换相里“一相拉高、一相拉低、一相悬空”的基本形态。
+PLECS 模型使用理想 IGBT 变流器接口，当前没有加入驱动传播延迟、死区、器件压降、开关损耗和保护锁存。第 11 篇会单独处理 PWM 与死区，不在本章提前混入。
 
-从 `all_off` 看，六个 gate 全部为 0 时，A/B/C 都是 `FLOAT`，没有直通。这种状态不产生有效转矩，但它是停机、故障关断或上电初始化时经常需要识别的状态。
+## 复现实验
 
-从 `fault_AH_AL` 和 `fault_BH_BL` 看，只要同一相上桥和下桥同时为 1，该相立刻变成 `FAULT`，`shoot_through` 变为 1。这个判断属于三相桥状态层，不属于速度 PI 层。
-
-## 图 2：正常导通和直通故障的区别
-
-![三相桥直通故障矩阵](../assets/02-three-phase-bridge/bridge_state_fault_matrix.png)
-
-这张图只比较三个关键场景：
-
-| 场景 | 读图方式 |
-|---|---|
-| `normal_AH_BL` | A 相 `HIGH`，B 相 `LOW`，C 相 `FLOAT`，直通标志为 `normal` |
-| `fault_AH_AL` | A 相变为 `FAULT`，直通标志为 `shoot` |
-| `fault_BH_BL` | B 相变为 `FAULT`，直通标志为 `shoot` |
-
-关键区别不是“有几个 gate 为 1”，而是同一相内部是否同时打开上下桥。`normal_AH_BL` 也有两个 gate 为 1，但它们分属 A 上桥和 B 下桥，所以不是直通。`fault_AH_AL` 只有 A 相内部上下桥同时导通，才是直通故障。
-
-## 配套实验包
-
-本章的实验文件放在这里：
-
-| 文件 | 作用 |
-|---|---|
-| [scripts/ch02_three_phase_bridge_tests.m](../scripts/ch02_three_phase_bridge_tests.m) | 生成本章状态级测试数据、图和报告 |
-| [assets/02-three-phase-bridge/bridge_state_scenarios.png](../assets/02-three-phase-bridge/bridge_state_scenarios.png) | 六个 gate、三相状态和直通标志的时序图 |
-| [assets/02-three-phase-bridge/bridge_state_fault_matrix.png](../assets/02-three-phase-bridge/bridge_state_fault_matrix.png) | 正常导通与直通故障的矩阵对比 |
-| [waveforms/02-three-phase-bridge/bridge_state_timeseries.csv](../waveforms/02-three-phase-bridge/bridge_state_timeseries.csv) | 时序图背后的逐点数据 |
-| [waveforms/02-three-phase-bridge/bridge_state_summary.csv](../waveforms/02-three-phase-bridge/bridge_state_summary.csv) | 场景级 PASS/FAIL 汇总 |
-| [reports/02-three-phase-bridge-test_report.md](../reports/02-three-phase-bridge-test_report.md) | 参数、结果和边界说明 |
-
-读文件时先看 `bridge_state_summary.csv`，确认 6 个场景都是 PASS；再看两张 PNG，把表格里的状态映射到波形和矩阵图上。
-
-## 为什么直通判断放在三相桥层
-
-速度环输出的是 `duty`，换相表输出的是基础 gates，PWM 层把 duty 调成脉冲。它们都不应该把三相桥内部状态当成自己的主职责。
-
-直通判断放在三相桥状态层有两个好处：
-
-| 好处 | 说明 |
-|---|---|
-| 可定位 | 看到 `shoot_through=1` 时，先查同相上下桥命令，而不是先怀疑 PI 参数 |
-| 可复用 | 不管 gates 来自开环、Hall 换相还是 PWM 调制，最后都经过同一个状态判断 |
-
-真实硬件里还会有驱动芯片互锁、死区、过流保护和故障锁存。那些属于保护执行层，不改变本章这个状态模型的职责边界。
-
-## 与 PLECS 的关系
-
-当前仓库已有 Step 01 PLECS 教学模型：
-
-```text
-learning_model/steps/step_01_three_phase_bridge/step_01_three_phase_bridge.plecs
-```
-
-Scope 里应观察：
-
-```text
-AH/BH/CH/AL/BL/CL
-A_state/B_state/C_state
-shoot_through
-```
-
-本篇 MATLAB 实验用于批量生成状态级数据和图。PLECS 模型用于把同一组信号放进 Step 01 教学模型里观察。两者证据类型不同：
-
-| 工具 | 本章里能说明什么 | 不要误读成 |
-|---|---|
-| MATLAB | 批量验证 gate 到相状态的离散逻辑 | 完整电机仿真 |
-| C | 表达控制代码里的状态判断函数 | 驱动器硬件保护已经完成 |
-| PLECS | 在 Step 01 教学模型里观察同名信号 | 已验证电机电流、转矩和反电动势 |
-
-如果本机没有启动 PLECS RPC，本篇 MATLAB 实验仍然可以完整复现。PLECS RPC 只影响模型自动加载验证，不影响本篇 CSV 和 PNG 证据。
-
-## 如何复现
-
-在 PowerShell 中运行：
+启动 PLECS Standalone 并启用 `localhost:1080` XML-RPC，然后在 PowerShell 中执行：
 
 ```powershell
-Set-Location D:\1codex\BLDC
-matlab -batch "run('D:\1codex\BLDC\scripts\ch02_three_phase_bridge_tests.m')"
+git clone https://github.com/Old-Ding/BLDC.git
+Set-Location .\BLDC
+python .\scripts\build_ch02_plecs_model.py
+python .\scripts\ch02_plecs_three_phase_bridge.py
+matlab -batch "run('scripts/ch02_three_phase_bridge_tests.m')"
 ```
 
 期望输出：
 
 ```text
-Generated chapter 02 three-phase bridge tests. scenarios=6 pass=6 figures=2
+Generated chapter 02 PLECS bridge evidence. scenarios=7 pass=7 time_points=201 signals=14 gate_combinations=64 elapsed_s=<总耗时>
+Generated chapter 02 MATLAB post-processing. scenarios=7 pass=7 figures=2
 ```
 
-查看汇总：
+## 配套文件
 
-```powershell
-Get-Content -LiteralPath .\waveforms\02-three-phase-bridge\bridge_state_summary.csv -Encoding UTF8
-Get-Content -LiteralPath .\reports\02-three-phase-bridge-test_report.md -Encoding UTF8
-```
+| 文件 | 作用 |
+|---|---|
+| [`models/plecs/ch02_three_phase_bridge/ch02_three_phase_bridge.plecs`](../models/plecs/ch02_three_phase_bridge/ch02_three_phase_bridge.plecs) | 真实两电平 IGBT 桥与 BLDC 绕组模型 |
+| [`scripts/build_ch02_plecs_model.py`](../scripts/build_ch02_plecs_model.py) | 从已验证母模型确定性派生第 02 篇模型 |
+| [`scripts/ch02_plecs_three_phase_bridge.py`](../scripts/ch02_plecs_three_phase_bridge.py) | 运行七个 PLECS 场景并生成 CSV、报告和原生 Scope 截图 |
+| [`scripts/ch02_three_phase_bridge_tests.m`](../scripts/ch02_three_phase_bridge_tests.m) | 读取 PLECS CSV，生成对比图和 64 组合矩阵 |
+| [`waveforms/02-three-phase-bridge/plecs_bridge_summary.csv`](../waveforms/02-three-phase-bridge/plecs_bridge_summary.csv) | 七场景指标与 PASS/FAIL |
+| [`waveforms/02-three-phase-bridge/gate_truth_table.csv`](../waveforms/02-three-phase-bridge/gate_truth_table.csv) | 64 组六路门极完整审计表 |
+| [`reports/02-three-phase-bridge-test_report.md`](../reports/02-three-phase-bridge-test_report.md) | 参数、场景结果和证据边界 |
+| [`docs/02-three-phase-bridge-reproduce.md`](../docs/02-three-phase-bridge-reproduce.md) | 完整 PowerShell 复现说明 |
 
-复现说明见：
+## 下一章：极对数为什么会改变换相频率
 
-```text
-docs/02-three-phase-bridge-reproduce.md
-```
-
-## 从这组数据能学到什么
-
-本篇要让读者学会先判断三相桥状态，再去讨论换相、PWM 和电机响应。6 个场景给出的教学结论是：
-
-| 观察到的现象 | 教学结论 | 不要误读成 |
-|---|---|---|
-| `normal_AH_BL` 里 A 为 `HIGH`，B 为 `LOW`，C 为 `FLOAT` | 正常六步导通是一相拉高、一相拉低、一相悬空 | 只要两个 gate 为 1 就是直通 |
-| `all_off` 里三相都是 `FLOAT` | 全关状态可以被状态模型明确识别 | 全关等于有效制动或有效转矩 |
-| `fault_AH_AL` 里 A 为 `FAULT`，`shoot_through=1` | 同一相上下桥同时导通才是直通故障 | 速度 PI 或 PWM 层负责判断直通 |
-| 6 个场景全部 PASS | 当前状态判断表和脚本期望一致 | 电机已经能转、硬件已经安全 |
-
-## 下一篇
-
-下一篇进入电角度、机械角度和极对数。只有把“机械转一圈”和“电角度走几圈”讲清楚，后面六步换相表和 Hall 反馈才不会变成死记硬背。
+下一章保持同一台 PLECS BLDC Machine，只改变极对数并同时观察机械角和电角。目标是用同一段机械转动证明：极对数为多少，电角度就转过多少圈。

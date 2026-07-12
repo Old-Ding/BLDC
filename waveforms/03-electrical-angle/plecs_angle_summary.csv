@@ -1,0 +1,3 @@
+scenario,pole_pairs,mechanical_delta_rad,electrical_delta_rad,angle_ratio,mean_speed_rad_s,max_phase_current_A,result
+one_pole_pair,1,4.99999999999916,4.99999999999916,1.0,100.0,0.0,PASS
+four_pole_pairs,4,4.99999999999916,19.99999999999664,4.0,100.0,0.0,PASS
