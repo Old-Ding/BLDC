@@ -1,0 +1,7 @@
+script_dir=fileparts(mfilename('fullpath'));root_dir=fileparts(script_dir);w=fullfile(root_dir,'waveforms','06-open-loop-angle');a=fullfile(root_dir,'assets','06-open-loop-angle');if ~exist(a,'dir');mkdir(a);end
+slow=readtable(fullfile(w,'plecs_slow_field.csv'),'VariableNamingRule','preserve');fast=readtable(fullfile(w,'plecs_fast_field.csv'),'VariableNamingRule','preserve');summary=readtable(fullfile(w,'plecs_open_loop_summary.csv'),'VariableNamingRule','preserve');assert(all(strcmp(summary.result,'PASS')));
+fig=figure('Color','w','Position',[100 80 1500 950]);l=tiledlayout(fig,3,1,'TileSpacing','compact','Padding','compact');title(l,'Open-loop command frequency is not rotor position feedback');
+nexttile;stairs(slow.time_s*1e3,slow.command_step,'LineWidth',1.3);hold on;stairs(fast.time_s*1e3,fast.command_step,'LineWidth',1.1);ylabel('command step');grid on;legend('slow field','fast field','Location','eastoutside');
+nexttile;plot(slow.time_s*1e3,slow.speed_rad_s,'LineWidth',1.4);hold on;plot(fast.time_s*1e3,fast.speed_rad_s,'LineWidth',1.4);ylabel('\omega_m / rad/s');grid on;
+nexttile;plot(slow.time_s*1e3,slow.torque_Nm,'LineWidth',1.2);hold on;plot(fast.time_s*1e3,fast.torque_Nm,'LineWidth',1.2);yline(0,':');ylabel('T_e / N m');xlabel('time / ms');grid on;
+exportgraphics(fig,fullfile(a,'slow_vs_fast_open_loop.png'),'Resolution',180);close(fig);fprintf('Generated chapter 06 MATLAB post-processing. scenarios=%d pass=%d figures=1\n',height(summary),sum(strcmp(summary.result,'PASS')));
