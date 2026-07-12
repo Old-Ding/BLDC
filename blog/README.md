@@ -13,11 +13,18 @@
 | 04 | 梯形反电动势与电磁转矩 | [`04-back-emf-and-torque.md`](04-back-emf-and-torque.md) | PLECS 功率等式实验，三轮复核通过 |
 | 05 | 120° 导通和六步换相表 | [`05-six-step-commutation-table.md`](05-six-step-commutation-table.md) | PLECS 六步序列实验，三轮复核通过 |
 
+## 阶段 B：开环启动与 Hall 六步闭环
+
+| 篇章 | 标题 | 文件 | 状态 |
+|---:|---|---|---|
+| 06 | 开环电角度如何旋转 | [`06-open-loop-electrical-angle.md`](06-open-loop-electrical-angle.md) | PLECS 开环频率实验，三轮复核通过 |
+| 07 | 静止启动与加速斜坡 | [`07-startup-ramp.md`](07-startup-ramp.md) | PLECS 定位/斜坡实验，三轮复核通过 |
+
 ## 后续阶段
 
 | 阶段 | 篇章 | 目标 |
 |---|---|---|
-| B | 06-14 | 开环启动、Hall、PWM、测速、速度 PI 和完整六步闭环 |
+| B | 08-14 | 失步诊断、Hall、PWM、测速、速度 PI 和完整六步闭环 |
 | C | 15-22 | C 编译、单元测试、定点化、外设映射、ISR、保护、CI/HIL 和硬件上电 |
 | D | 23-29 | 反电动势过零、消隐滤波、无感接管、提前角和硬件验证 |
 | E | 30-36 | Clarke/Park、电流环、SVPWM、FOC、弱磁和路线比较 |

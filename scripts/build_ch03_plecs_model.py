@@ -106,8 +106,10 @@ def main() -> None:
       }'''
     text = text.replace(
         current_scope_branch,
-        '''      DstComponent  "phase_current_A"
-      DstTerminal   1''',
+        '''      Branch {
+        DstComponent  "phase_current_A"
+        DstTerminal   1
+      }''',
         1,
     )
     phase_output_start, phase_output_end = component_bounds(text, 'Name          "phase_current_A"')

@@ -8,12 +8,12 @@
 
 | 项目 | 当前结果 |
 |---|---|
-| 当前阶段 | 阶段 A 已完成，进入阶段 B：Hall 六步闭环 |
-| 最新完成实验 | 第 05 章 PLECS 120 度导通与六步序列 |
-| 最新文章 | [`blog/05-six-step-commutation-table.md`](blog/05-six-step-commutation-table.md) |
-| 复现说明 | [`docs/05-six-step-commutation-reproduce.md`](docs/05-six-step-commutation-reproduce.md) |
-| 最新模型 | [`models/plecs/ch05_six_step_sequence/ch05_six_step_sequence.plecs`](models/plecs/ch05_six_step_sequence/ch05_six_step_sequence.plecs) |
-| 下一章 | 第 06 章开环电角度与换相频率 |
+| 当前阶段 | 阶段 B：开环启动与 Hall 六步闭环 |
+| 最新完成实验 | 第 07 章 PLECS 定位与开环频率斜坡 |
+| 最新文章 | [`blog/07-startup-ramp.md`](blog/07-startup-ramp.md) |
+| 复现说明 | [`docs/07-startup-ramp-reproduce.md`](docs/07-startup-ramp-reproduce.md) |
+| 最新模型 | [`models/plecs/ch07_startup_ramp/ch07_startup_ramp.plecs`](models/plecs/ch07_startup_ramp/ch07_startup_ramp.plecs) |
+| 下一章 | 第 08 章开环失步根因与相位差诊断 |
 | GitHub | https://github.com/Old-Ding/BLDC |
 
 ## 工具分工
@@ -35,6 +35,8 @@
 | 03 | [`机械转一圈，电角度为什么可能转四圈`](blog/03-mechanical-and-electrical-angle.md) | PLECS 极对数场景、角度解包、扇区图 | 完成 |
 | 04 | [`电流大小相近，转矩方向为什么不同`](blog/04-back-emf-and-torque.md) | 1703 点 e*i 与 Te*omega 核对、再生场景 | 完成 |
 | 05 | [`六个有效桥状态为什么要按这个顺序切换`](blog/05-six-step-commutation-table.md) | PLECS C-Script 六步表、正序/反序/全关 | 完成 |
+| 06 | [`命令电角在旋转，转子为什么可能不动`](blog/06-open-loop-electrical-angle.md) | PLECS 慢/快开环场、601 点/场景、原生 Scope 与 MATLAB 图 | 完成 |
+| 07 | [`从静止到旋转：BLDC 定位与开环频率斜坡`](blog/07-startup-ramp.md) | PLECS 定位/斜坡与直接高频、15 路数据、相位差与大电流边界 | 完成 |
 
 ## 第 01 章快速复现
 

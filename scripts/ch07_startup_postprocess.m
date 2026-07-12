@@ -1,0 +1,8 @@
+script_dir=fileparts(mfilename('fullpath'));root_dir=fileparts(script_dir);w=fullfile(root_dir,'waveforms','07-startup-ramp');a=fullfile(root_dir,'assets','07-startup-ramp');if ~exist(a,'dir');mkdir(a);end
+ramp=readtable(fullfile(w,'plecs_ramp_start.csv'),'VariableNamingRule','preserve');direct=readtable(fullfile(w,'plecs_direct_fast.csv'),'VariableNamingRule','preserve');summary=readtable(fullfile(w,'plecs_startup_summary.csv'),'VariableNamingRule','preserve');assert(all(strcmp(summary.result,'PASS')));
+fig=figure('Color','w','Position',[100 80 1550 1100]);l=tiledlayout(fig,4,1,'TileSpacing','compact','Padding','compact');title(l,'Alignment and frequency ramp versus direct high-frequency start');
+nexttile;plot(ramp.time_s,ramp.command_frequency_Hz,'LineWidth',1.5);hold on;plot(direct.time_s,direct.command_frequency_Hz,'LineWidth',1.3);ylabel('f_e / Hz');grid on;legend('ramp','direct fast','Location','eastoutside');
+nexttile;plot(ramp.time_s,ramp.command_electrical_angle_rad,'LineWidth',1.3);hold on;plot(ramp.time_s,ramp.rotor_angle_unwrapped_rad,'LineWidth',1.3);ylabel('angle / rad');grid on;legend('command electrical','rotor mechanical (p=1)','Location','eastoutside');
+nexttile;plot(ramp.time_s,ramp.speed_rad_s,'LineWidth',1.4);hold on;plot(direct.time_s,direct.speed_rad_s,'LineWidth',1.4);ylabel('\omega_m / rad/s');grid on;
+nexttile;plot(ramp.time_s,ramp.torque_Nm,'LineWidth',1.1);hold on;plot(direct.time_s,direct.torque_Nm,'LineWidth',1.1);yline(0,':');ylabel('T_e / N m');xlabel('time / s');grid on;
+exportgraphics(fig,fullfile(a,'ramp_vs_direct_start.png'),'Resolution',180);close(fig);fprintf('Generated chapter 07 MATLAB post-processing. scenarios=%d pass=%d figures=1\n',height(summary),sum(strcmp(summary.result,'PASS')));
