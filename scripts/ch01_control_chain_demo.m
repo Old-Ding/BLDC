@@ -22,7 +22,7 @@ if height(summary) ~= 2 || any(string(summary.result) ~= "PASS")
     error('第 01 章 PLECS 汇总结果不是 2/2 PASS，请先重新运行 PLECS 场景脚本。');
 end
 
-plot_load_comparison(nominal, overload, asset_dir);
+plot_load_comparison(nominal, overload, summary, asset_dir);
 plot_commutation_zoom(nominal, asset_dir);
 
 fprintf('Generated chapter 01 MATLAB post-processing. scenarios=2 pass=2 figures=2\n');
@@ -34,47 +34,50 @@ if ~isempty(missing)
 end
 end
 
-function plot_load_comparison(nominal, overload, asset_dir)
-colors = lines(4);
+function plot_load_comparison(nominal, overload, summary, asset_dir)
+colors = lines(3);
 initial_speed_rpm = 300 * 60 / (2 * pi);
-nominal_i_peak = max(abs([nominal.ia_A, nominal.ib_A, nominal.ic_A]), [], 2);
-overload_i_peak = max(abs([overload.ia_A, overload.ib_A, overload.ic_A]), [], 2);
+scenario_names = string(summary.scenario);
+nominal_row = find(scenario_names == "nominal_load", 1);
+overload_row = find(scenario_names == "overload", 1);
+if isempty(nominal_row) || isempty(overload_row)
+    error('第 01 章汇总数据缺少 nominal_load 或 overload 场景。');
+end
 
-f = figure('Visible', 'off', 'Color', 'w', 'Position', [100, 100, 1200, 880]);
+torque_values = [
+    summary.tail_torque_mean_Nm(nominal_row), summary.load_torque_Nm(nominal_row);
+    summary.tail_torque_mean_Nm(overload_row), summary.load_torque_Nm(overload_row)
+];
 
-subplot(3, 1, 1);
-h_nominal_speed = plot(nominal.time_s, nominal.speed_rpm, 'LineWidth', 1.4, ...
+f = figure('Visible', 'off', 'Color', 'w', 'Position', [100, 100, 1200, 760]);
+
+subplot(2, 1, 1);
+h_nominal_speed = plot(nominal.time_s, nominal.speed_rpm, 'LineWidth', 1.8, ...
     'Color', colors(1, :)); hold on;
-h_overload_speed = plot(overload.time_s, overload.speed_rpm, 'LineWidth', 1.4, ...
+h_overload_speed = plot(overload.time_s, overload.speed_rpm, 'LineWidth', 1.8, ...
     'Color', colors(2, :));
 h_initial_speed = yline(initial_speed_rpm, ':', 'LineWidth', 1.0, ...
     'Color', [0.35, 0.35, 0.35]);
 grid on; ylabel('Speed / rpm');
-title('PLECS data: load determines whether current-limited torque can sustain speed');
+title('PLECS experiment: torque balance determines the speed trend');
 legend([h_nominal_speed, h_overload_speed, h_initial_speed], ...
-    {'3 N m nominal load', '6 N m overload', 'Initial speed'}, 'Location', 'best');
+    {'3 N m load', '6 N m load', 'Initial speed'}, 'Location', 'best');
 
-subplot(3, 1, 2);
-h_nominal_torque = plot(nominal.time_s, nominal.electromagnetic_torque_Nm, 'LineWidth', 1.1, ...
-    'Color', colors(1, :)); hold on;
-h_overload_torque = plot(overload.time_s, overload.electromagnetic_torque_Nm, 'LineWidth', 1.1, ...
-    'Color', colors(2, :));
-h_nominal_load = yline(3, '--', 'Color', colors(1, :));
-h_overload_load = yline(6, '--', 'Color', colors(2, :));
-grid on; ylim([0, 6.6]); ylabel('Torque / N m');
-legend([h_nominal_torque, h_overload_torque, h_nominal_load, h_overload_load], ...
-    {'Nominal electromagnetic torque', 'Overload electromagnetic torque', ...
-    '3 N m load', '6 N m load'}, 'Location', 'best');
-
-subplot(3, 1, 3);
-h_nominal_current = plot(nominal.time_s, nominal_i_peak, 'LineWidth', 1.1, ...
-    'Color', colors(1, :)); hold on;
-h_overload_current = plot(overload.time_s, overload_i_peak, 'LineWidth', 1.1, ...
-    'Color', colors(2, :));
-h_current_ref = yline(5, '--', 'Color', colors(3, :));
-grid on; ylim([0, 6.5]); ylabel('max(|i_a|,|i_b|,|i_c|) / A'); xlabel('Time / s');
-legend([h_nominal_current, h_overload_current, h_current_ref], ...
-    {'Nominal load', 'Overload', '5 A reference'}, 'Location', 'best');
+subplot(2, 1, 2);
+b = bar(torque_values, 'grouped');
+b(1).FaceColor = colors(1, :);
+b(2).FaceColor = [0.35, 0.35, 0.35];
+grid on; ylim([0, 6.8]); ylabel('Torque / N m');
+xticklabels({'3 N m scenario', '6 N m scenario'});
+legend({'Tail mean electromagnetic torque', 'Load torque'}, 'Location', 'northwest');
+for series_index = 1:numel(b)
+    x_values = b(series_index).XEndPoints;
+    y_values = b(series_index).YEndPoints;
+    labels = compose('%.2f', b(series_index).YData);
+    text(x_values, y_values, labels, 'HorizontalAlignment', 'center', ...
+        'VerticalAlignment', 'bottom', 'FontSize', 10);
+end
+xlabel('Compare electromagnetic torque with load torque before judging speed');
 
 exportgraphics(f, fullfile(asset_dir, 'plecs_load_comparison.png'), 'Resolution', 180);
 close(f);

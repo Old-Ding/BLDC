@@ -1,6 +1,8 @@
 # 第 01 章发布前复核记录
 
-本文件记录实际检查对象、发现项和修改结果。复核结论不作为文章正文内容。
+复核日期：2026-07-13
+
+本文件记录第 01 章的工程、视觉写作和读者理解检查。复核结论不写入公开教程正文。
 
 ## 工程一致性复核
 
@@ -13,73 +15,83 @@
 - `reports/01-bldc-control-chain-test_report.md`
 - `blog/01-bldc-control-chain.md`
 
-发现与修改：
-
-| 发现 | 风险 | 修改结果 |
+| 检查项 | 证据 | 结果 |
 |---|---|---|
-| 旧 MATLAB 信号演示图和 CSV 仍与正式证据混放 | 读者可能把信号示意误认为 PLECS 电机仿真 | 删除 2 张旧图和 2 份旧 CSV，只保留 PLECS 数据链 |
-| 公开命令写死 `D:` 本机路径 | GitHub 读者无法直接复现 | 改为 `git clone`、相对路径和仓库内脚本入口 |
-| RPC 异常时缺少可见进度和等待上限 | PLECS 卡在对话框时难以判断脚本状态 | 增加逐场景 START/DONE、120 s RPC 超时和明确退出信息 |
-| 第 00 篇仍是旧 00-11 路线 | 仓库入口与 00-36 总纲冲突 | 重写第 00 篇和复现文档，统一五阶段路线 |
-| 模型输出与 CSV 列缺少强约束 | Outport 改动后可能错列生成报告 | 固定 5 个 Outport、11 路输出，数量不一致立即失败 |
-| 三值相命令被命名为 `gate_a/b/c` | 容易误读为六路 IGBT 门极信号 | 改为 `phase_cmd_a/b/c`，并在正文和模型说明中明确门极展开属于第 02 章 |
+| 初始转速换算 | `300 * 60 / (2π) = 2864.79 rpm` | 正文写为约 2865 rpm |
+| 额定场景 | 峰值电流 5.9941 A，尾段平均转矩 2.9936 N m，负载 3 N m | 数字和结论一致 |
+| 过载场景 | 峰值电流 5.9982 A，尾段平均转矩 4.0098 N m，负载 6 N m | 转矩缺口 1.9902 N m |
+| 尾段均值与最终值 | 尾段平均转速 271.99 rpm，最终速度 -1.26 rad/s | 正文明确区分，未把均值写成稳定值 |
+| 5 A 参考与约 6 A 峰值 | PLECS 电流控制器 Relay 阈值为 `+1/-1` | 峰值来自滞环范围，不判为失控 |
+| 场景单变量 | 两组场景只改变 `load_torque_Nm` | 可以把响应差异归因到负载 |
+| 仿真职责 | Python 调用 `plecs.simulate`，MATLAB 仅读取 CSV | 未把 MATLAB 后处理误写成电机仿真 |
 
-一致性结果：
+本次未修改 PLECS 模型、场景定义和逐点数据，因此没有重写 PLECS 结果。MATLAB 后处理脚本已实际运行，输出为：
 
-- PLECS 模型包含两电平 IGBT 三相桥、BLDC Machine、三相电流测量、机械负载和转速/转矩探针。
-- `nominal_load` 与 `overload` 均由同一模型、同一母线和同一电流参考生成。
-- 每个场景 601 行数据、13 个 CSV 字段；汇总报告为 2/2 PASS。
-- 正文中的 5.9941 A、5.9982 A、3490.23 rpm、271.99 rpm、2.9936 N m、4.0098 N m 与汇总 CSV 一致。
+```text
+Generated chapter 01 MATLAB post-processing. scenarios=2 pass=2 figures=2
+```
 
-## 视觉与信息层级复核
+## 视觉与写作复核
 
-检查对象：
+检查了 3 张正文图片及其前后说明：
 
-| 图 | 尺寸 | 来源 |
-|---|---:|---|
-| `plecs_scope_nominal_load.png` | 1800 x 1350 | PLECS Scope 直接导出 |
-| `plecs_scope_overload.png` | 1800 x 1350 | PLECS Scope 直接导出 |
-| `plecs_load_comparison.png` | 1865 x 1454 | MATLAB 读取 PLECS CSV |
-| `plecs_commutation_zoom.png` | 1860 x 1486 | MATLAB 读取 PLECS CSV |
+| 图片 | 尺寸 | 来源 | 正文用途 |
+|---|---:|---|---|
+| `plecs_load_comparison.png` | 1865 x 1275 | MATLAB 读取 PLECS CSV | 先比较平均转矩与负载，再看转速趋势 |
+| `plecs_scope_nominal_load.png` | 1800 x 1350 | PLECS Scope 直接导出 | 核对额定负载尾段原始波形 |
+| `plecs_scope_overload.png` | 1800 x 1350 | PLECS Scope 直接导出 | 核对过载尾段原始波形 |
 
 发现与修改：
 
 | 发现 | 修改结果 |
 |---|---|
-| 初版对比图的参考线文字压住曲线 | 将参考线改为图例项，并给转矩/电流纵轴保留余量 |
-| PLECS 与 MATLAB 图来源容易混淆 | 正文标题、图前说明和文件名均写明来源；MATLAB 图明确为 PLECS CSV 后处理 |
-| 一张图有多行子图但缺少阅读顺序 | 每张图后按子图逐项说明先看什么和能得出什么结论 |
-| 换相局部图纵轴写成 `Gate command` | 改为 `Phase command`，避免把三值相命令误读成器件门极电平 |
+| 原对比图同时堆叠速度、瞬时转矩和电流，首轮阅读信息过密 | 改为两行图：转速曲线 + 平均电磁转矩/负载柱状图 |
+| PLECS 原图使用元件原生英文图例 | 增加 `Stator Phase`、`Back EMF`、`Motor`、`Machine` 对照表 |
+| 原文要求从四行 Scope 同时推理 | 改为固定读图顺序：速度 -> 转矩 -> 平均值 -> 电流 |
+| 换相局部图偏离第 01 章的转矩平衡主线 | 从公开正文移除，文件仍保留供对应换相内容使用 |
+| 参数表和完整控制链出现过早 | 移到手算和第一张结论图之后 |
 
-视觉检查结果：4 张图均非空白，坐标、单位、曲线和图例可辨认，没有文字遮挡正文或图片路径失效。
+图片均已目视检查，曲线、坐标、图例和柱状图数值可辨认，没有空白图或文字遮挡。
 
 ## 读者理解复核
 
-检查对象：第 00 篇路线、第 01 篇正文、两份复现文档和仓库索引。
+根因检查结论：原文虽然数据完整，但在读者尚未理解净转矩时，同时引入五层控制链、反电动势、`e*i`、三值相命令和 PLECS 元件名，首轮阅读负担过高。
 
-发现与修改：
+重写后的理解路径：
 
-| 检查点 | 修改结果 |
-|---|---|
-| 第 01 篇是否从读者问题进入 | 以“同样 5 A，3 N m 能维持、6 N m 为什么失速”作为开场现象 |
-| 是否先给因果模型再给参数和文件 | 文章顺序调整为现象、物理链、公式、参数、场景、图、边界、复现、文件索引 |
-| 文件清单是否过早出现 | 完整文件索引移到文章后半段 |
-| 边界是否像作者辩解 | 改为“已观察证据、可得结论、不要误读成”三列表 |
-| 结尾是否制造多章任务压力 | 只预告第 02 章的一个问题：三值相命令怎样变成六路门极信号 |
-| 路线入口是否与总纲一致 | 第 00 篇改为 00-36 五阶段路线，并明确路线文章不冒充实验章 |
+```text
+区分电流、转矩、负载、转速
+  -> 手算 Te - TL
+  -> 从柱状图比较平均转矩与负载
+  -> 从转速曲线验证加减速方向
+  -> 回到 PLECS 原始 Scope 核对证据
+  -> 用四个问题检查是否能独立复述
+```
 
-## 验证命令
+读者完成第 01 章后应能回答：
+
+1. 为什么 `Te = TL` 时转速不必为 0。
+2. 为什么 5 A 不能直接解释成 5 N m。
+3. 为什么过载场景中有电流仍会减速。
+4. 为什么初始速度 300 rad/s 的实验不能证明静止启动。
+5. 遇到掉速时应先比较哪些量。
+
+公开语气检查结果：`check_public_voice.ps1` 对正文返回 0 个命中。正文不包含写作方法比较、复核过程、课程设计辩解或发布操作记录。
+
+## 验证记录
 
 ```powershell
 python -m py_compile .\scripts\ch01_plecs_bldc_baseline.py
-python .\scripts\ch01_plecs_bldc_baseline.py
 matlab -batch "run('scripts/ch01_control_chain_demo.m')"
+& "$env:USERPROFILE\.codex\skills\technical-series-author\scripts\check_public_voice.ps1" -Path .\blog\01-bldc-control-chain.md
 git diff --check
 ```
 
-最近一次结果：
+结果：
 
-```text
-Generated chapter 01 PLECS baseline. scenarios=2 pass=2 time_points=601 signals=11 elapsed_s=<总耗时>
-Generated chapter 01 MATLAB post-processing. scenarios=2 pass=2 figures=2
-```
+- Python 语法检查通过。
+- MATLAB 后处理运行通过，2 个场景、2 张图片。
+- 公开语气检查通过，0 个命中。
+- 正文内 3 个图片链接和 1 个复现文档链接均可解析。
+- UTF-8 无 BOM，CRLF 换行。
+- `git diff --check` 通过。

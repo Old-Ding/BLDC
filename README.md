@@ -30,7 +30,7 @@
 | 篇章 | 标题 | 证据 | 状态 |
 |---:|---|---|---|
 | 00 | [`BLDC 完整学习路线`](blog/00-bldc-learning-route.md) | 路线和仓库入口 | 路线文章 |
-| 01 | [`让 BLDC 在 PLECS 里真正转起来`](blog/01-bldc-control-chain.md) | PLECS 模型、2 个场景、1202 行逐点数据、4 张图、报告 | 完成 |
+| 01 | [`电流还在，BLDC 为什么会减速`](blog/01-bldc-control-chain.md) | PLECS 模型、2 个场景、1202 行逐点数据、4 张图、报告 | 完成 |
 | 02 | [`三值相命令怎样变成真实电流`](blog/02-three-phase-bridge.md) | 真实 IGBT 桥、7 场景、64 组门极审计、3 张图 | 完成 |
 | 03 | [`机械转一圈，电角度为什么可能转四圈`](blog/03-mechanical-and-electrical-angle.md) | PLECS 极对数场景、角度解包、扇区图 | 完成 |
 | 04 | [`电流大小相近，转矩方向为什么不同`](blog/04-back-emf-and-torque.md) | 1703 点 e*i 与 Te*omega 核对、再生场景 | 完成 |
