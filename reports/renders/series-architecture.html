@@ -1,0 +1,2928 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>BLDC series architecture review render</title>
+<style>
+:root{color-scheme:light}
+*{box-sizing:border-box}
+body{margin:0;background:#f6f7f9;color:#15171a;font:16px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI","Microsoft YaHei",Arial,sans-serif}
+main{max-width:1120px;margin:0 auto;padding:32px 24px 64px;background:#fff;min-height:100vh;box-sizing:border-box}
+h1{font-size:34px;line-height:1.2;margin:0 0 22px}
+h2{font-size:26px;margin:38px 0 16px;border-top:1px solid #dde1e6;padding-top:24px}
+h3{font-size:20px;margin:28px 0 12px}
+p,li{font-size:16px}
+code{background:#eef2f5;padding:1px 4px;border-radius:4px}
+pre{background:#111827;color:#f8fafc;padding:16px;border-radius:8px;overflow:auto}
+pre code{background:transparent;color:inherit;padding:0}
+table{border-collapse:collapse;width:100%;margin:14px 0 24px;font-size:15px}
+th,td{border:1px solid #cfd6df;padding:8px 10px;vertical-align:top}
+th{background:#edf2f7;font-weight:700}
+.table-wrap{overflow-x:auto;margin:12px 0 22px;max-width:100%}
+.table-wrap table{min-width:760px;margin:0}
+.evidence-cards{display:none}
+.table-wrap.evidence-section{display:none}
+.evidence-cards.evidence-section{display:block}
+.evidence-card{border:1px solid #cfd6df;border-radius:7px;margin:10px 0;padding:10px;background:#fff}
+.evidence-card h3{font-size:18px;margin:0 0 8px;border:0;padding:0}
+.evidence-field{display:grid;grid-template-columns:96px 1fr;gap:6px;border-top:1px solid #e5e9f0;padding:6px 0}
+.evidence-field:first-of-type{border-top:0}
+.evidence-label{font-weight:700;color:#344054}
+.evidence-field>div:last-child{min-width:0;overflow-wrap:anywhere;word-break:break-word}
+.contract-card{display:none}
+.coverage-cards{display:none}
+.coverage-card{border:1px solid #cfd6df;border-radius:7px;margin:10px 0;padding:10px;background:#fff}
+.coverage-card h3{font-size:18px;margin:0 0 8px;border:0;padding:0}
+.coverage-field{display:grid;grid-template-columns:96px 1fr;gap:6px;border-top:1px solid #e5e9f0;padding:6px 0}
+.coverage-field:first-of-type{border-top:0}
+.coverage-label{font-weight:700;color:#344054}
+.coverage-field>div:last-child{min-width:0;overflow-wrap:anywhere;word-break:break-word}
+a{color:#0f5cc0}
+@media(max-width:600px){
+  main{padding:20px 14px 48px}
+  h1{font-size:27px}
+  h2{font-size:22px}
+  h3{font-size:18px}
+  p,li{font-size:16px}
+  pre{max-width:100%;white-space:pre-wrap;overflow-wrap:anywhere}
+  pre code{white-space:pre-wrap;overflow-wrap:anywhere}
+  code{overflow-wrap:anywhere;word-break:break-word}
+  table{font-size:13px;table-layout:fixed;width:100%}
+  th,td{padding:6px 5px;overflow-wrap:anywhere;word-break:break-word}
+  .table-wrap{overflow-x:visible}
+  .table-wrap table{min-width:0;width:100%}
+  .table-wrap.detailed-contract-section{display:none}
+  .table-wrap.bidirectional-coverage-section{display:none}
+  .coverage-cards.bidirectional-coverage-section{display:block}
+  .contract-card{display:block;border:1px solid #cfd6df;border-radius:7px;margin:8px 0 20px;padding:10px;background:#fff}
+  .contract-field{display:grid;grid-template-columns:minmax(88px,32%) 1fr;gap:8px;border-top:1px solid #e5e9f0;padding:7px 0}
+  .contract-field:first-child{border-top:0}
+  .contract-label{font-weight:700;color:#344054;word-break:keep-all;overflow-wrap:anywhere}
+  .contract-value{overflow-wrap:anywhere;word-break:break-word}
+}
+</style>
+</head>
+<body><main><h1>BLDC 技术教程系列架构</h1>
+<p>候选版本：<code>v0.1</code>
+目标仓库：<code>Old-Ding/BLDC</code>
+本文件职责：固定系列的读者基线、能力出口、知识依赖、章节边界和证据契约。审批状态、审查 Agent、发布记录和哈希锁不写入本文件，应单独记录在 <code>reports/series-architecture-independent-review.md</code>。</p>
+<h2>1. 目标读者</h2>
+<table>
+<thead>
+<tr>
+<th>字段</th>
+<th>定义</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>目标读者</td>
+<td>已经接触过电机、功率电子或嵌入式控制，但还不能把 BLDC 的三相桥、换相、Hall、PWM、测速和速度环串成可验证工程链路的读者。</td>
+</tr>
+<tr>
+<td>已有领域知识</td>
+<td>能区分直流母线、三相绕组、开关管、相电流、转矩、负载和转速；不要求已经会设计完整 BLDC 控制器。</td>
+</tr>
+<tr>
+<td>已有数学基础</td>
+<td>能读懂代数关系、正负号、平均值、误差、比例积分和角度单位；三相坐标变换、FOC 和无感估算会在后续阶段首次讲解。</td>
+</tr>
+<tr>
+<td>已有工具能力</td>
+<td>能在 Windows 上运行 PowerShell，能安装或打开 PLECS Standalone、MATLAB；Python 脚本的作用会在复现实验中说明。</td>
+</tr>
+<tr>
+<td>硬件条件</td>
+<td>第一季不要求真实硬件；所有正式结论限定在 PLECS 开关功率级、BLDC Machine、CSV、MATLAB 后处理和报告范围内。</td>
+</tr>
+<tr>
+<td>需要先走其他路线的人群</td>
+<td>没有基本电路概念、不会区分电压/电流/功率/转矩、不能运行本地脚本的读者，需要先补电路基础和命令行基础。</td>
+</tr>
+</tbody></table>
+<h2>2. 终局工程能力</h2>
+<h3>CAP-CHAIN-01 读懂电流到转速的因果链</h3>
+<table>
+<thead>
+<tr>
+<th>字段</th>
+<th>内容</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>可观察任务</td>
+<td>给出相电流、反电动势、电磁转矩、负载和转速曲线时，判断电机为什么加速、减速或失速。</td>
+</tr>
+<tr>
+<td>证据链</td>
+<td>C01、C03、C04 的 PLECS CSV、Scope 图、MATLAB 对比图和报告。</td>
+</tr>
+<tr>
+<td>过关标准</td>
+<td>能用 <code>J*domega/dt = Te - TL - B*omega - Tloss</code> 解释至少一个额定负载和一个过载场景；能说明 <code>sum(e*i)=Te*omega_m</code> 是非零速功率一致性检查，不是零速转矩产生的因果来源。</td>
+</tr>
+<tr>
+<td>建设章节</td>
+<td>C01、C03、C04</td>
+</tr>
+<tr>
+<td>最终集成章节</td>
+<td>C14</td>
+</tr>
+</tbody></table>
+<h3>CAP-BRIDGE-01 从相命令追到三相桥电流路径</h3>
+<table>
+<thead>
+<tr>
+<th>字段</th>
+<th>内容</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>可观察任务</td>
+<td>给定三值相命令，判断哪两相接入母线、哪一相悬空、线电压方向和相电流方向。</td>
+</tr>
+<tr>
+<td>证据链</td>
+<td>C02 的真实 PLECS 三相桥、7 个场景 CSV、64 组合真值表、Scope 图和报告。</td>
+</tr>
+<tr>
+<td>过关标准</td>
+<td>能解释 <code>Apos_Bneg</code> 与 <code>all_off</code> 的电流路径差异，并能识别直通和无效组合。</td>
+</tr>
+<tr>
+<td>建设章节</td>
+<td>C02</td>
+</tr>
+<tr>
+<td>最终集成章节</td>
+<td>C05、C14</td>
+</tr>
+</tbody></table>
+<h3>CAP-SIXSTEP-01 建立六步换相的物理来源</h3>
+<table>
+<thead>
+<tr>
+<th>字段</th>
+<th>内容</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>可观察任务</td>
+<td>从电角度、反电动势符号、相状态和换相顺序推导六步导通为什么是一相高、一相低、一相悬空。</td>
+</tr>
+<tr>
+<td>证据链</td>
+<td>C03、C04、C05 的角度、功率、序列和桥状态实验。</td>
+</tr>
+<tr>
+<td>过关标准</td>
+<td>能说明一个 60 度扇区里哪两相应导通，能解释顺序反转和全关场景的结果。</td>
+</tr>
+<tr>
+<td>建设章节</td>
+<td>C03、C04、C05</td>
+</tr>
+<tr>
+<td>最终集成章节</td>
+<td>C10、C14</td>
+</tr>
+</tbody></table>
+<h3>CAP-OPENLOOP-01 诊断开环启动和失步</h3>
+<table>
+<thead>
+<tr>
+<th>字段</th>
+<th>内容</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>可观察任务</td>
+<td>给出命令电角频率、转子角、速度和转矩曲线时，判断转子是否跟上旋转磁场以及为什么失步。</td>
+</tr>
+<tr>
+<td>证据链</td>
+<td>C06、C07、C08 的慢/快开环、启动斜坡、同步跟随、过快斜坡和负载阶跃场景；C08 同一 PLECS 观测链覆盖 1 个同步正例和 3 个失步场景。</td>
+</tr>
+<tr>
+<td>过关标准</td>
+<td>能区分“磁场在转”和“转子同步跟随”，并能用相位差、速度趋势和转矩脉动定位失步。</td>
+</tr>
+<tr>
+<td>建设章节</td>
+<td>C06、C07、C08</td>
+</tr>
+<tr>
+<td>最终集成章节</td>
+<td>C14</td>
+</tr>
+</tbody></table>
+<h3>CAP-HALL-01 用 Hall 位置反馈驱动六步换相</h3>
+<table>
+<thead>
+<tr>
+<th>字段</th>
+<th>内容</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>可观察任务</td>
+<td>给定 Hall A/B/C 序列、方向和换相偏置，判断编码是否合法、方向是否一致、偏置是否产生反转或转矩下降。</td>
+</tr>
+<tr>
+<td>证据链</td>
+<td>C09、C10 的合法/非法 Hall、正反方向、6 个偏置、反向表和全关场景；C10 与 C14 模型原生导出 Hall A/B/C、Hall code、解码扇区、合法转移、enable 和 fault。</td>
+</tr>
+<tr>
+<td>过关标准</td>
+<td>能识别 <code>000/111</code> 非法，能解释合法 Hall 序列为什么仍可能因偏置错误而反转，并能从 CSV 追踪 <code>Hall interface -&gt; decoded sector -&gt; commutator/PWM</code>。</td>
+</tr>
+<tr>
+<td>建设章节</td>
+<td>C09、C10</td>
+</tr>
+<tr>
+<td>最终集成章节</td>
+<td>C14</td>
+</tr>
+</tbody></table>
+<h3>CAP-PWM-01 解释 duty 和 deadtime 对六步能量的影响</h3>
+<table>
+<thead>
+<tr>
+<th>字段</th>
+<th>内容</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>可观察任务</td>
+<td>给定 duty、deadtime、相命令和速度/电流结果，判断平均能量是否改变以及换相顺序是否改变。</td>
+</tr>
+<tr>
+<td>证据链</td>
+<td>C11 的 10 kHz PWM、低中高 duty、零死区和大死区 PLECS 场景。</td>
+</tr>
+<tr>
+<td>过关标准</td>
+<td>能说明 duty 调的是同一换相步内的有效通电时间，不直接定义 Hall 扇区或目标转速。</td>
+</tr>
+<tr>
+<td>建设章节</td>
+<td>C11</td>
+</tr>
+<tr>
+<td>最终集成章节</td>
+<td>C13、C14</td>
+</tr>
+</tbody></table>
+<h3>CAP-SPEED-01 从 Hall 边沿得到有符号速度</h3>
+<table>
+<thead>
+<tr>
+<th>字段</th>
+<th>内容</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>可观察任务</td>
+<td>给定 Hall 边沿时间、极对数和方向，计算速度估计并解释量化、滤波和超时。</td>
+</tr>
+<tr>
+<td>证据链</td>
+<td>C12 的慢速、中速、高速、反转、4 极对和停止超时场景；PLECS 原生导出 Hall code、合法边沿计数、原始/滤波速度和 timeout。</td>
+</tr>
+<tr>
+<td>过关标准</td>
+<td>能把边沿周期换算为机械速度，能解释高速估算为什么要和同次 PLECS 实际速度比较。</td>
+</tr>
+<tr>
+<td>建设章节</td>
+<td>C12</td>
+</tr>
+<tr>
+<td>最终集成章节</td>
+<td>C14</td>
+</tr>
+</tbody></table>
+<h3>CAP-PI-01 把速度误差变成 duty 并诊断饱和</h3>
+<table>
+<thead>
+<tr>
+<th>字段</th>
+<th>内容</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>可观察任务</td>
+<td>给定目标速度、反馈速度、duty、积分状态和负载扰动，判断 PI 是否饱和、是否需要抗饱和。</td>
+</tr>
+<tr>
+<td>证据链</td>
+<td>C13 的目标阶跃、负载阶跃、开启/关闭抗饱和恢复场景。</td>
+</tr>
+<tr>
+<td>过关标准</td>
+<td>能解释 duty 限幅后积分继续累积为什么会拖慢恢复，并能用报告中的饱和占比和尾段误差判断。</td>
+</tr>
+<tr>
+<td>建设章节</td>
+<td>C13</td>
+</tr>
+<tr>
+<td>最终集成章节</td>
+<td>C14</td>
+</tr>
+</tbody></table>
+<h3>CAP-INTEGRATION-01 复现完整 Hall 六步闭环验收</h3>
+<table>
+<thead>
+<tr>
+<th>字段</th>
+<th>内容</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>可观察任务</td>
+<td>运行完整 PLECS 闭环模型，检查零速启动、目标阶跃、负载阶跃、非法 Hall 和过载五类场景。</td>
+</tr>
+<tr>
+<td>证据链</td>
+<td>C14 的 5 组 PLECS CSV、Scope 图、综合 MATLAB 图和验收检查；模型原生导出 Hall A/B/C、Hall code、合法转移、fault、enable、duty 和六路门极。</td>
+</tr>
+<tr>
+<td>过关标准</td>
+<td>5/5 场景按定义复现，五类失败样本被验收谓词检出，非法 Hall 窗口内六路门极全关。</td>
+</tr>
+<tr>
+<td>建设章节</td>
+<td>C01-C14</td>
+</tr>
+<tr>
+<td>最终集成章节</td>
+<td>C14</td>
+</tr>
+</tbody></table>
+<h3>后续阶段能力边界</h3>
+<table>
+<thead>
+<tr>
+<th>能力 ID</th>
+<th>阶段</th>
+<th>可观察任务</th>
+<th>当前边界</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>CAP-FW-01</td>
+<td>C15-C22 固件工程</td>
+<td>编译 C 控制核心、运行主机测试、完成定点、ADC/PWM、ISR、保护、CI/HIL 和硬件上电证据。</td>
+<td>第一季不能宣称 MCU-ready；C14 只能作为仿真行为参考，不替代 C 编译和目标时序证据。</td>
+</tr>
+<tr>
+<td>CAP-SENSORLESS-01</td>
+<td>C23-C29 无感六步</td>
+<td>从悬空相反电动势过零、消隐和换相延迟建立无感接管闭环。</td>
+<td>第一季 Hall 反馈不能替代无感过零证据。</td>
+</tr>
+<tr>
+<td>CAP-FOC-01</td>
+<td>C30-C36 FOC</td>
+<td>建立 Clarke/Park、电流环、SVPWM、弱磁和六步/FOC 对比。</td>
+<td>第一季不引入 dq 电流闭环，不混写为入门六步内容。</td>
+</tr>
+</tbody></table>
+<h2>3. 系统因果与数据流</h2>
+<pre><code class="language-mermaid">flowchart LR
+    DC[&quot;直流母线&quot;] --&gt; INV[&quot;三相桥&quot;]
+    GATE[&quot;PWM/deadtime/全关覆盖/六路门极&quot;] --&gt; INV
+    INV --&gt; PH[&quot;相电流&quot;]
+    MECH[&quot;机械角/速度&quot;] --&gt; BEMF[&quot;反电动势&quot;]
+    BEMF --&gt; PH
+    PH --&gt; TORQUE[&quot;电磁转矩&quot;]
+    MECH --&gt; TORQUE
+    PH --&gt; POWER[&quot;功率一致性 e*i ↔ Te*omega&quot;]
+    BEMF --&gt; POWER
+    TORQUE --&gt; POWER
+    MECH --&gt; POWER
+    LOAD[&quot;负载转矩&quot;] --&gt; MECH
+    TORQUE --&gt; MECH
+    MECH --&gt; HALL[&quot;Hall边沿&quot;]
+    HALL --&gt; DEC[&quot;Hall解码/扇区/合法转移&quot;]
+    DEC --&gt; EVENT[&quot;合法转移事件/时间戳&quot;]
+    EVENT --&gt; SPEED[&quot;Hall测速&quot;]
+    DEC --&gt; FAULT[&quot;Hall故障标志&quot;]
+    REF[&quot;目标速度&quot;] --&gt; PI[&quot;速度误差/PI/限幅&quot;]
+    SPEED --&gt; PI
+    PI --&gt; DUTY[&quot;PI duty&quot;]
+    DEC --&gt; TABLE[&quot;六步表 H/L/Z&quot;]
+    FAULT --&gt; SAFE[&quot;换相安全判定 enable&quot;]
+    TABLE --&gt; GATE
+    DUTY --&gt; GATE
+    SAFE --&gt; GATE
+</code></pre>
+<h3>SYS-DC 直流母线与三相桥</h3>
+<table>
+<thead>
+<tr>
+<th>字段</th>
+<th>内容</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>输入</td>
+<td>母线电压、六路门极命令、deadtime 后的 enable/all-off 状态。</td>
+</tr>
+<tr>
+<td>内部责任</td>
+<td>把门极命令变成上桥/下桥/悬空状态和线电压。</td>
+</tr>
+<tr>
+<td>输出</td>
+<td>三相端电压、相电流路径、直通或全关状态。</td>
+</tr>
+<tr>
+<td>可观测证据</td>
+<td>C02、C05、C11 的 PLECS Scope、CSV 和真值表。</td>
+</tr>
+<tr>
+<td>责任边界</td>
+<td>证明开关级和电流路径，不证明 Hall 位置或速度控制正确。</td>
+</tr>
+</tbody></table>
+<h3>SYS-MOTOR BLDC 电磁与机械对象</h3>
+<table>
+<thead>
+<tr>
+<th>字段</th>
+<th>内容</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>输入</td>
+<td>相电压、相电流、机械角/速度、负载转矩、惯量和阻尼。</td>
+</tr>
+<tr>
+<td>内部责任</td>
+<td>相电压、绕组 R/L 和反电动势共同决定相电流；相电流与转子电角度/磁链共同决定电磁转矩；转矩再经 <code>J*domega/dt = Te - TL - B*omega - Tloss</code> 改变机械速度和位置。<code>sum(e*i)</code> 与 <code>Te*omega_m</code> 只用于非零速功率一致性检查，不作为转矩产生的主因果链。</td>
+</tr>
+<tr>
+<td>输出</td>
+<td>反电动势、电磁转矩、机械角、机械速度、Hall 信号。</td>
+</tr>
+<tr>
+<td>可观测证据</td>
+<td>C01、C03、C04、C06-C14 的 PLECS CSV 与 Scope。</td>
+</tr>
+<tr>
+<td>责任边界</td>
+<td>第一季是仿真对象，不包含真实器件热、采样延迟、传感器噪声和硬件安全验证。</td>
+</tr>
+</tbody></table>
+<h3>SYS-FEEDBACK Hall、测速与控制器</h3>
+<table>
+<thead>
+<tr>
+<th>字段</th>
+<th>内容</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>输入</td>
+<td>Hall A/B/C、Hall 边沿时间戳、目标速度、实际或估算速度、Hall 故障状态。</td>
+</tr>
+<tr>
+<td>内部责任</td>
+<td>Hall 解码只产出扇区、合法转移事件、时间戳和故障标志；Hall 测速只用合法 60 度电角转移事件计算速度；PI 只产出 duty；换相安全判定只产出 enable；PWM/deadtime/门极合成层唯一负责把 H/L/Z、duty、deadtime 和 enable 合成为六路门极，故障全关只在这一层覆盖一次。</td>
+</tr>
+<tr>
+<td>输出</td>
+<td>扇区、合法转移事件、速度反馈、PWM duty、H/L/Z、enable、六路门极、诊断标志。</td>
+</tr>
+<tr>
+<td>可观测证据</td>
+<td>C09-C14 的合法/非法 Hall、偏置、PWM、测速、PI 和闭环报告。</td>
+</tr>
+<tr>
+<td>责任边界</td>
+<td>PLECS C-Script 或脚本中的控制逻辑不是 MCU 固件证据；C 编译和目标时序进入 C15 以后。</td>
+</tr>
+</tbody></table>
+<h2>4. 知识依赖图</h2>
+<p>箭头 <code>A -&gt; B</code> 表示没有 A，读者无法独立解释或验证 B。</p>
+<pre><code class="language-mermaid">flowchart TB
+    E1[&quot;ENTRY-PWR&quot;] --&gt; K1[&quot;K-NET-TORQUE&quot;]
+    E1 --&gt; K2[&quot;K-BRIDGE-STATE&quot;]
+    E2[&quot;ENTRY-MATH&quot;] --&gt; K3[&quot;K-ELEC-ANGLE&quot;]
+    E3[&quot;ENTRY-TOOL&quot;] --&gt; K1
+    K1 --&gt; K4[&quot;K-BEMF-POWER&quot;]
+    K2 --&gt; K5[&quot;K-SIXSTEP&quot;]
+    K3 --&gt; K5
+    K4 --&gt; K5
+    K5 --&gt; C5O[&quot;CAPABILITY_OUTPUT-C05&quot;]
+    C5O --&gt; K6[&quot;K-OPENLOOP&quot;]
+    K6 --&gt; K7[&quot;K-STARTUP&quot;]
+    K7 --&gt; K8[&quot;K-DESYNC&quot;]
+    K3 --&gt; K9[&quot;K-HALL-SECTOR&quot;]
+    K8 --&gt; K9
+    K9 --&gt; K10[&quot;K-HALL-OFFSET&quot;]
+    K5 --&gt; K10
+    K4 --&gt; K10
+    K10 --&gt; K11[&quot;K-PWM-DUTY&quot;]
+    K9 --&gt; K12[&quot;K-HALL-SPEED&quot;]
+    K11 --&gt; K13[&quot;K-SPEED-PI&quot;]
+    K12 --&gt; K13
+    K8 --&gt; O1[&quot;CAPABILITY_OUTPUT-C14&quot;]
+    K10 --&gt; O1
+    K11 --&gt; O1
+    K12 --&gt; O1
+    K13 --&gt; O1[&quot;CAPABILITY_OUTPUT-C14&quot;]
+</code></pre>
+<h2>5. 知识与前置注册表</h2>
+<table>
+<thead>
+<tr>
+<th>ID</th>
+<th>类型</th>
+<th>入口依据或来源能力</th>
+<th>为什么需要 / 解决的现象</th>
+<th>输入</th>
+<th>转换或责任</th>
+<th>输出</th>
+<th>证据和边界</th>
+<th>Owner / 首次使用</th>
+<th>最小例子</th>
+<th>复用规则</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>ENTRY-PWR</td>
+<td>ENTRY</td>
+<td>目标读者能区分电压、电流、功率和负载。</td>
+<td>读懂功率级和电机响应。</td>
+<td>电压、电流、负载、转速。</td>
+<td>基础物理量识别。</td>
+<td>可读曲线名称和单位。</td>
+<td>只证明入口能力，不证明 BLDC 控制。</td>
+<td>入口 / C01</td>
+<td>电流大不等于一定加速。</td>
+<td>后续可直接使用电压、电流、负载术语。</td>
+</tr>
+<tr>
+<td>ENTRY-MATH</td>
+<td>ENTRY</td>
+<td>目标读者能处理正负号、角度、平均值和误差。</td>
+<td>支撑净转矩、电角度、速度误差。</td>
+<td>数值、角度、采样点。</td>
+<td>单位换算和简单公式。</td>
+<td>预测方向或平均指标。</td>
+<td>不包含 dq 坐标和复杂控制理论。</td>
+<td>入口 / C01</td>
+<td><code>Te - TL &lt; 0</code> 时减速。</td>
+<td>后续只讲新增公式含义。</td>
+</tr>
+<tr>
+<td>ENTRY-TOOL</td>
+<td>ENTRY</td>
+<td>能运行 PowerShell、PLECS、MATLAB 的基本命令。</td>
+<td>复现实验必须能启动工具链。</td>
+<td>命令、脚本路径、端口。</td>
+<td>执行和查看输出。</td>
+<td>CSV、图片、报告。</td>
+<td>工具可用性不等于技术结论。</td>
+<td>入口 / C01</td>
+<td><code>python scripts/ch01_...py</code> 生成 CSV。</td>
+<td>每章只说明新增命令或新增工具边界。</td>
+</tr>
+<tr>
+<td>K-NET-TORQUE</td>
+<td>CONCEPT</td>
+<td>C01 首次教学。</td>
+<td>解释电流存在但仍减速。</td>
+<td>电磁转矩、负载转矩、速度、阻尼和损耗边界。</td>
+<td>比较 <code>Te - TL - B*omega - Tloss</code> 的符号；C01 简化场景中 <code>B</code> 与 <code>Tloss</code> 置零。</td>
+<td>加速、减速或近似平衡判断。</td>
+<td>C01 两负载场景；不证明控制器最优。</td>
+<td>C01 / C01</td>
+<td>4 N m 电磁转矩遇到 6 N m 负载会减速。</td>
+<td>C04、C14 用作转速变化解释。</td>
+</tr>
+<tr>
+<td>K-BRIDGE-STATE</td>
+<td>CONCEPT</td>
+<td>C02 首次教学。</td>
+<td>把三值相命令展开成真实桥臂状态。</td>
+<td>A/B/C 的 H/L/Z 或 <code>1/-1/0</code>。</td>
+<td>映射到上桥、下桥、悬空和线电压。</td>
+<td>相电流方向、合法性、全关。</td>
+<td>C02 七场景和 64 组合；不证明转矩方向。</td>
+<td>C02 / C02</td>
+<td><code>Apos_Bneg</code> 使 A 到 B 建立电流。</td>
+<td>C05、C10、C11 消费相状态语言。</td>
+</tr>
+<tr>
+<td>K-ELEC-ANGLE</td>
+<td>CONCEPT</td>
+<td>C03 首次教学。</td>
+<td>极对数改变换相频率。</td>
+<td>机械角、极对数。</td>
+<td><code>theta_e = pole_pairs * theta_m</code>。</td>
+<td>电角度和扇区。</td>
+<td>C03 两极对数场景；不证明换相表正确。</td>
+<td>C03 / C03</td>
+<td>4 极对机械转一圈，电角转四圈。</td>
+<td>C05-C10 用电角扇区不重复推导。</td>
+</tr>
+<tr>
+<td>K-BEMF-POWER</td>
+<td>CONCEPT</td>
+<td>C04 首次教学。</td>
+<td>用 <code>e*i</code> 解释转矩正负。</td>
+<td>反电动势、相电流、机械速度。</td>
+<td>在 SI 单位下求瞬时电磁功率并和 <code>Te*omega_m</code> 对照；<code>omega_m</code> 用 rad/s，零速附近不通过除法求转矩。</td>
+<td>正转矩、负转矩、再生判断。</td>
+<td>C04 三场景功率残差；不覆盖硬件损耗。</td>
+<td>C04 / C04</td>
+<td>相同电流方向遇到不同反电动势可得到不同转矩。</td>
+<td>C05、C10 判断换相方向。</td>
+</tr>
+<tr>
+<td>K-SIXSTEP</td>
+<td>CONCEPT</td>
+<td>C05 首次教学。</td>
+<td>说明六步为什么每步两相导通一相悬空。</td>
+<td>电角扇区、相状态、功率方向。</td>
+<td>按 60 度扇区切换 H/L/Z。</td>
+<td>正序、反序、全关序列。</td>
+<td>C05 三场景；不解决启动同步。</td>
+<td>C05 / C05</td>
+<td><code>A+ B- C悬空</code> 是一个有效步。</td>
+<td>C06-C14 作为换相基本动作。</td>
+</tr>
+<tr>
+<td>CAPABILITY_OUTPUT-C05</td>
+<td>CAPABILITY_OUTPUT</td>
+<td>C05 产出。</td>
+<td>让后续章节使用六步序列而不重复桥状态推导。</td>
+<td>六步相状态。</td>
+<td>C05 报告验证顺序和全关。</td>
+<td>可复用的六步命令链。</td>
+<td>只覆盖序列合法性，不覆盖闭环。</td>
+<td>C05 / C06</td>
+<td>正序六步能依次切换。</td>
+<td>C06-C14 可直接引用。</td>
+</tr>
+<tr>
+<td>K-OPENLOOP</td>
+<td>CONCEPT</td>
+<td>C06 首次教学。</td>
+<td>区分命令电角旋转和转子实际跟随。</td>
+<td>step 周期、命令角、转子角。</td>
+<td>按固定时间推进六步。</td>
+<td>转矩、速度和相位响应。</td>
+<td>C06 慢/快场景；不证明能从静止启动。</td>
+<td>C06 / C06</td>
+<td>磁场转得过快时平均转矩抵消。</td>
+<td>C07、C08 消费开环频率概念。</td>
+</tr>
+<tr>
+<td>K-STARTUP</td>
+<td>CONCEPT</td>
+<td>C07 首次教学。</td>
+<td>静止转子不能直接跟随高频换相。</td>
+<td>初始定位、斜坡频率、负载。</td>
+<td>先建立方向再提高频率。</td>
+<td>启动速度和相位差。</td>
+<td>C07 斜坡/直接高频对比；不等于闭环启动。</td>
+<td>C07 / C07</td>
+<td>先低频再加速比直接高频更容易拖动。</td>
+<td>C08、C14 消费启动边界。</td>
+</tr>
+<tr>
+<td>K-DESYNC</td>
+<td>CONCEPT</td>
+<td>C08 首次教学。</td>
+<td>解释开环失步根因。</td>
+<td>负载、频率斜坡、转子角。</td>
+<td>比较命令角和实际角差。</td>
+<td>同步或失步诊断。</td>
+<td>C08 PLECS 覆盖 1 个同步正例和 3 个失步场景；信号级 oracle 只固定分类器边界。</td>
+<td>C08 / C08</td>
+<td>相位差持续滑移表示失步。</td>
+<td>C14 用于解释过载边界。</td>
+</tr>
+<tr>
+<td>K-HALL-SECTOR</td>
+<td>CONCEPT</td>
+<td>C09 首次教学。</td>
+<td>用三路 Hall 表示离散转子扇区和方向。</td>
+<td>Hall A/B/C、电角度、方向。</td>
+<td>验证合法码和序列方向。</td>
+<td>扇区、方向、非法码。</td>
+<td>C09 正反/非法场景；不证明换相偏置正确。</td>
+<td>C09 / C09</td>
+<td><code>000/111</code> 不是合法 120 度 Hall 状态。</td>
+<td>C10-C14 使用 Hall 扇区。</td>
+</tr>
+<tr>
+<td>K-HALL-OFFSET</td>
+<td>CONCEPT</td>
+<td>C10 首次教学。</td>
+<td>合法 Hall 序列仍可能因安装偏置导致反转或转矩下降。</td>
+<td>Hall 扇区、偏置、换相表。</td>
+<td>扫描 6 个偏置并比较转矩/速度。</td>
+<td>正确偏置、错误偏置、全关边界。</td>
+<td>C10 八场景；不证明真实硬件标定。</td>
+<td>C10 / C10</td>
+<td>错 60 度可能转矩下降且电流变大。</td>
+<td>C14 使用已验证偏置。</td>
+</tr>
+<tr>
+<td>K-PWM-DUTY</td>
+<td>CONCEPT</td>
+<td>C11 首次教学。</td>
+<td>调能量而不改变 Hall 顺序。</td>
+<td>duty、deadtime、六步相状态。</td>
+<td>在同一换相步内调有效通电时间。</td>
+<td>平均电压、电流、速度变化。</td>
+<td>C11 五场景；不证明目标速度闭环。</td>
+<td>C11 / C11</td>
+<td>50% duty 比 25% duty 有更高平均能量。</td>
+<td>C13、C14 作为 PI 输出执行器。</td>
+</tr>
+<tr>
+<td>K-HALL-SPEED</td>
+<td>CONCEPT</td>
+<td>C12 首次教学。</td>
+<td>离散 Hall 边沿怎样得到连续速度估计。</td>
+<td>边沿时间、方向、极对数。</td>
+<td>用边沿间隔换算速度并滤波/超时。</td>
+<td>有符号速度估计和 timeout。</td>
+<td>C12 六场景含 4 极对 PLECS 原生测速；不等于无感估速。</td>
+<td>C12 / C12</td>
+<td>边沿越密，估算速度越高。</td>
+<td>C14 作为速度反馈。</td>
+</tr>
+<tr>
+<td>K-SPEED-PI</td>
+<td>CONCEPT</td>
+<td>C13 首次教学。</td>
+<td>速度误差怎样变成 duty，饱和时怎样恢复。</td>
+<td>目标速度、反馈速度、误差、积分。</td>
+<td>PI 计算、限幅、条件积分。</td>
+<td>duty、积分状态、恢复效果。</td>
+<td>C13 四场景；反馈先用 Machine 真值隔离测速影响。</td>
+<td>C13 / C13</td>
+<td>duty 已到上限时继续积分会拖慢降目标恢复。</td>
+<td>C14 与 Hall 测速合并。</td>
+</tr>
+<tr>
+<td>CAPABILITY_OUTPUT-C14</td>
+<td>CAPABILITY_OUTPUT</td>
+<td>C14 产出。</td>
+<td>第一季仿真闭环结论。</td>
+<td>Hall、PWM、PI、三相桥、BLDC Machine。</td>
+<td>运行完整闭环场景套件并输出可观察 Hall/control/gate 原生诊断。</td>
+<td>5/5 场景验收结果和 5/5 失败样本检出。</td>
+<td>只证明 PLECS 仿真闭环，不证明 C 编译、MCU 时序或硬件安全裕量。</td>
+<td>C14 / C15</td>
+<td>非法 Hall 触发全关，过载复现速度不足。</td>
+<td>C15 只能使用通过审查后的 C14 CSV 作为行为参考，不替代编译证据。</td>
+</tr>
+</tbody></table>
+<h2>6. 模块划分</h2>
+<table>
+<thead>
+<tr>
+<th>模块</th>
+<th>工程责任 / 因果边界</th>
+<th>入口能力</th>
+<th>结束时能回答的问题</th>
+<th>集成证据</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>M00 路线入口</td>
+<td>先建立系统依赖图和复现规则。</td>
+<td>ENTRY-PWR、ENTRY-MATH、ENTRY-TOOL。</td>
+<td>读者知道第一季为什么从三相桥、转矩、Hall 和闭环推进。</td>
+<td>C00 路线文章和复现入口。</td>
+</tr>
+<tr>
+<td>M01 功率级与电机物理</td>
+<td>三相桥、电角度、反电动势、转矩和六步表的物理来源。</td>
+<td>ENTRY-PWR、ENTRY-MATH。</td>
+<td>相命令怎样变成电流，电流和转子磁链怎样决定转矩，反电动势怎样参与绕组电流和功率一致性。</td>
+<td>C01-C05 的模型、CSV、Scope、MATLAB 图和报告。</td>
+</tr>
+<tr>
+<td>M02 开环启动与同步</td>
+<td>没有位置反馈时，命令磁场和转子实际运动的关系。</td>
+<td>CAPABILITY_OUTPUT-C05。</td>
+<td>开环为什么需要斜坡，失步怎样从相位和速度诊断。</td>
+<td>C06-C08 PLECS 覆盖同步正例、过快斜坡和负载扰动失步。</td>
+</tr>
+<tr>
+<td>M03 Hall 换相与执行器</td>
+<td>Hall 扇区、偏置、PWM 和 deadtime。</td>
+<td>CAPABILITY_OUTPUT-C05、K-ELEC-ANGLE。</td>
+<td>合法 Hall 如何驱动六步，duty 如何调能量。</td>
+<td>C09-C11 的 Hall、偏置、PWM 证据；C10-C14 Hall 解码接口已由 PLECS 原生诊断闭合。</td>
+</tr>
+<tr>
+<td>M04 反馈和速度闭环</td>
+<td>Hall 测速、PI、完整闭环场景。</td>
+<td>K-HALL-SECTOR、K-PWM-DUTY。</td>
+<td>从边沿到速度，再从速度误差到 duty，最后闭环是否成立。</td>
+<td>C12 PLECS 原生测速、C13 PI 证据和 C14 Hall/control/gate 原生闭环验收。</td>
+</tr>
+<tr>
+<td>M05 固件工程</td>
+<td>C 编译、单元测试、定点、外设映射、ISR、保护和硬件验证。</td>
+<td>通过审查的 CAPABILITY_OUTPUT-C14。</td>
+<td>同一套控制判断能否进入可编译、可测试、可上板的软件结构。</td>
+<td>C15-C22，尚未在第一季完成。</td>
+</tr>
+</tbody></table>
+<h2>7. 章节索引</h2>
+<table>
+<thead>
+<tr>
+<th>章节</th>
+<th>唯一核心问题</th>
+<th>详细契约</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>C00 BLDC 完整学习路线</td>
+<td>第一季需要先建立哪条物理和控制依赖链？</td>
+<td><a href="#c00">查看</a></td>
+</tr>
+<tr>
+<td>C01 电流还在，为什么会减速</td>
+<td>电流存在时，净转矩为什么仍可能为负？</td>
+<td><a href="#c01">查看</a></td>
+</tr>
+<tr>
+<td>C02 三相桥状态</td>
+<td>三值相命令怎样变成真实桥臂和电流路径？</td>
+<td><a href="#c02">查看</a></td>
+</tr>
+<tr>
+<td>C03 机械角与电角度</td>
+<td>极对数为什么改变换相频率？</td>
+<td><a href="#c03">查看</a></td>
+</tr>
+<tr>
+<td>C04 反电动势与转矩</td>
+<td><code>e*i</code> 怎样决定转矩方向和功率流？</td>
+<td><a href="#c04">查看</a></td>
+</tr>
+<tr>
+<td>C05 六步换相表</td>
+<td>为什么六个桥状态要按 120 度顺序切换？</td>
+<td><a href="#c05">查看</a></td>
+</tr>
+<tr>
+<td>C06 开环电角频率</td>
+<td>命令电角旋转时，转子为什么可能不跟随？</td>
+<td><a href="#c06">查看</a></td>
+</tr>
+<tr>
+<td>C07 启动斜坡</td>
+<td>静止转子为什么不能直接高频换相？</td>
+<td><a href="#c07">查看</a></td>
+</tr>
+<tr>
+<td>C08 开环失步</td>
+<td>负载或斜坡过快时，失步怎样被诊断？</td>
+<td><a href="#c08">查看</a></td>
+</tr>
+<tr>
+<td>C09 Hall 序列</td>
+<td>三路 Hall 为什么只有六个合法状态？</td>
+<td><a href="#c09">查看</a></td>
+</tr>
+<tr>
+<td>C10 Hall 换相偏置</td>
+<td>Hall 合法时，换相表为什么仍可能错？</td>
+<td><a href="#c10">查看</a></td>
+</tr>
+<tr>
+<td>C11 PWM 与 deadtime</td>
+<td>duty 怎样调能量而不改变换相顺序？</td>
+<td><a href="#c11">查看</a></td>
+</tr>
+<tr>
+<td>C12 Hall 边沿测速</td>
+<td>离散 Hall 边沿怎样得到有符号速度？</td>
+<td><a href="#c12">查看</a></td>
+</tr>
+<tr>
+<td>C13 速度 PI</td>
+<td>速度误差怎样变成 duty，饱和怎样处理？</td>
+<td><a href="#c13">查看</a></td>
+</tr>
+<tr>
+<td>C14 完整 Hall 六步闭环</td>
+<td>启动、Hall、PWM、测速和 PI 合并后能否通过场景验收？</td>
+<td><a href="#c14">查看</a></td>
+</tr>
+</tbody></table>
+<h2>8. 单章详细契约</h2>
+<p><a id="c00"></a></p>
+<h3>C00 BLDC 完整学习路线</h3>
+<table>
+<thead>
+<tr>
+<th>字段</th>
+<th>内容</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>唯一核心问题</td>
+<td>第一季需要先建立哪条物理和控制依赖链？</td>
+</tr>
+<tr>
+<td>明确不解决</td>
+<td>不做仿真实验结论，不宣称任何控制性能。</td>
+</tr>
+<tr>
+<td>终局能力映射</td>
+<td>CAP-CHAIN-01 到 CAP-INTEGRATION-01 的导航入口。</td>
+</tr>
+<tr>
+<td>前置 ID</td>
+<td>ENTRY-PWR、ENTRY-MATH、ENTRY-TOOL。</td>
+</tr>
+<tr>
+<td>最小心智模型</td>
+<td>电源和三相桥给电机施加相电流，电机产生转矩，Hall 和速度反馈再改变下一次命令。</td>
+</tr>
+<tr>
+<td>最小示例</td>
+<td>从“电流还在但电机减速”进入净转矩，再走向桥、角度、换相、Hall、PWM、测速和 PI。</td>
+</tr>
+<tr>
+<td>正常场景</td>
+<td>读者按路线定位当前章节和复现实验入口。</td>
+</tr>
+<tr>
+<td>边界场景</td>
+<td>路线文章不能替代正式实验章节。</td>
+</tr>
+<tr>
+<td>模型/源码</td>
+<td><code>docs/series-plan.md</code>、<code>blog/00-bldc-learning-route.md</code>、<code>docs/00-bldc-learning-route-reproduce.md</code>。</td>
+</tr>
+<tr>
+<td>独立判据</td>
+<td>不适用；路线章节只做导航。</td>
+</tr>
+<tr>
+<td>结果数据</td>
+<td>无正式场景数据。</td>
+</tr>
+<tr>
+<td>正式图片</td>
+<td>无强制仿真图。</td>
+</tr>
+<tr>
+<td>报告与复现文档</td>
+<td><code>docs/00-bldc-learning-route-reproduce.md</code>。</td>
+</tr>
+<tr>
+<td>目标掌握级别</td>
+<td>L2 Explain。</td>
+</tr>
+<tr>
+<td>必须解释</td>
+<td>为什么 Hall 六步闭环要先于固件、无感和 FOC。</td>
+</tr>
+<tr>
+<td>必须预测</td>
+<td>进入某一章前应已经掌握哪些上游结论。</td>
+</tr>
+<tr>
+<td>必须复现/诊断</td>
+<td>能找到第一季每章的文章、模型、数据和报告。</td>
+</tr>
+<tr>
+<td>可测过关标准</td>
+<td>能从索引找到 C01-C14 任一章节的复现入口。</td>
+</tr>
+<tr>
+<td>下一章复用结论</td>
+<td>第一季先从“电流、转矩、负载和转速”建立整条因果链。</td>
+</tr>
+</tbody></table>
+<p><a id="c01"></a></p>
+<h3>C01 电流还在，为什么会减速</h3>
+<table>
+<thead>
+<tr>
+<th>字段</th>
+<th>内容</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>唯一核心问题</td>
+<td>电流存在时，净转矩为什么仍可能为负或不足？</td>
+</tr>
+<tr>
+<td>明确不解决</td>
+<td>不讲三相桥开关细节、Hall、PWM、速度闭环和硬件验证。</td>
+</tr>
+<tr>
+<td>终局能力映射</td>
+<td>CAP-CHAIN-01。</td>
+</tr>
+<tr>
+<td>前置 ID</td>
+<td>ENTRY-PWR、ENTRY-MATH、ENTRY-TOOL。</td>
+</tr>
+<tr>
+<td>最小心智模型</td>
+<td>相电流和反电动势产生电磁转矩；速度变化由电磁转矩与负载转矩的差决定。</td>
+</tr>
+<tr>
+<td>最小示例</td>
+<td>简化场景中 <code>B=0</code>、<code>Tloss=0</code>，<code>Te=4 N m</code>、<code>TL=6 N m</code> 时 <code>Te-TL&lt;0</code>，转速下降。</td>
+</tr>
+<tr>
+<td>正常场景</td>
+<td><code>nominal_load</code>：负载 3 N m，尾段转矩约 2.9936 N m，速度约 3490.23 rpm。</td>
+</tr>
+<tr>
+<td>边界场景</td>
+<td><code>overload</code>：负载 6 N m，电流仍约 6 A，但尾段转矩约 4.0098 N m，速度降至约 271.99 rpm。</td>
+</tr>
+<tr>
+<td>模型/源码</td>
+<td><code>models/plecs/ch01_bldc_baseline/ch01_bldc_baseline.plecs</code>、<code>scripts/ch01_plecs_bldc_baseline.py</code>、<code>scripts/ch01_control_chain_demo.m</code>。</td>
+</tr>
+<tr>
+<td>独立判据</td>
+<td>简化机械方程下的净转矩符号和 PLECS Machine 输出的同次速度趋势互相校验；MATLAB 只读 CSV。</td>
+</tr>
+<tr>
+<td>结果数据</td>
+<td><code>waveforms/01-bldc-control-chain/plecs_*.csv</code>、<code>plecs_baseline_summary.csv</code>。</td>
+</tr>
+<tr>
+<td>正式图片</td>
+<td><code>assets/01-bldc-control-chain/plecs_load_comparison.png</code>、<code>plecs_scope_nominal_load.png</code>、<code>plecs_scope_overload.png</code>。</td>
+</tr>
+<tr>
+<td>图注契约</td>
+<td>对象：负载转矩对比和 PLECS 原始尾段；场景：3 N m 与 6 N m；结论：过载 PASS 表示复现转矩不足和掉速。</td>
+</tr>
+<tr>
+<td>报告与复现文档</td>
+<td><code>reports/01-bldc-control-chain-test_report.md</code>、<code>docs/01-bldc-control-chain-reproduce.md</code>。</td>
+</tr>
+<tr>
+<td>目标掌握级别</td>
+<td>L3 Predict + L4 Reproduce。</td>
+</tr>
+<tr>
+<td>必须解释</td>
+<td>为什么“有电流”不等于“有足够转矩维持速度”。</td>
+</tr>
+<tr>
+<td>必须预测</td>
+<td>负载增加到超过可用平均转矩时，速度会下降。</td>
+</tr>
+<tr>
+<td>必须复现/诊断</td>
+<td>重新生成两场景 CSV、图和报告，并解释 <code>overload PASS</code> 的含义。</td>
+</tr>
+<tr>
+<td>可测过关标准</td>
+<td>2/2 场景 PASS，且读者能用净转矩解释两场景差异。</td>
+</tr>
+<tr>
+<td>下一章复用结论</td>
+<td>转矩链成立后，需要看电流由哪个桥臂状态产生。</td>
+</tr>
+</tbody></table>
+<p><a id="c02"></a></p>
+<h3>C02 三相桥状态</h3>
+<table>
+<thead>
+<tr>
+<th>字段</th>
+<th>内容</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>唯一核心问题</td>
+<td>三值相命令怎样变成真实桥臂和电流路径？</td>
+</tr>
+<tr>
+<td>明确不解决</td>
+<td>不讲电角度、转矩方向、Hall 和速度环。</td>
+</tr>
+<tr>
+<td>终局能力映射</td>
+<td>CAP-BRIDGE-01。</td>
+</tr>
+<tr>
+<td>前置 ID</td>
+<td>ENTRY-PWR、K-NET-TORQUE。</td>
+</tr>
+<tr>
+<td>最小心智模型</td>
+<td>每一相只能是上桥接母线、下桥接地或悬空；两相导通形成电流回路。</td>
+</tr>
+<tr>
+<td>最小示例</td>
+<td><code>Apos_Bneg</code> 表示 A 上桥、B 下桥、C 悬空。</td>
+</tr>
+<tr>
+<td>正常场景</td>
+<td>6 个两相导通场景均建立对应线电压和相电流。</td>
+</tr>
+<tr>
+<td>边界场景</td>
+<td><code>all_off</code> 和 64 组合真值表检查全关、无效和直通风险。</td>
+</tr>
+<tr>
+<td>模型/源码</td>
+<td><code>models/plecs/ch02_three_phase_bridge/ch02_three_phase_bridge.plecs</code>、<code>scripts/ch02_plecs_three_phase_bridge.py</code>。</td>
+</tr>
+<tr>
+<td>独立判据</td>
+<td>两相串联 R-L 方向和 KCL 作为检查，不读取图形结论。</td>
+</tr>
+<tr>
+<td>结果数据</td>
+<td><code>waveforms/02-three-phase-bridge/*.csv</code>、<code>gate_truth_table.csv</code>。</td>
+</tr>
+<tr>
+<td>正式图片</td>
+<td><code>assets/02-three-phase-bridge/plecs_scope_Apos_Bneg.png</code>、<code>plecs_bridge_paths.png</code>、<code>gate_truth_table_matrix.png</code>。</td>
+</tr>
+<tr>
+<td>图注契约</td>
+<td>对象：桥状态、电流路径和门极矩阵；场景：有效导通、全关、无效组合；结论：三值相命令能追到真实桥臂责任。</td>
+</tr>
+<tr>
+<td>报告与复现文档</td>
+<td><code>reports/02-three-phase-bridge-test_report.md</code>、<code>docs/02-three-phase-bridge-reproduce.md</code>。</td>
+</tr>
+<tr>
+<td>目标掌握级别</td>
+<td>L3 + L4。</td>
+</tr>
+<tr>
+<td>必须解释</td>
+<td>H/L/Z 与六路门极、相电压、线电压的关系。</td>
+</tr>
+<tr>
+<td>必须预测</td>
+<td>给一个三值命令，预测哪两相会出现相反电流。</td>
+</tr>
+<tr>
+<td>必须复现/诊断</td>
+<td>运行 7 个 PLECS 场景并检查 64 组合矩阵。</td>
+</tr>
+<tr>
+<td>可测过关标准</td>
+<td>7/7 PLECS 场景 PASS，64/64 门极组合被分类。</td>
+</tr>
+<tr>
+<td>下一章复用结论</td>
+<td>已能把相命令变成电流路径，下一步需要知道何时切换。</td>
+</tr>
+</tbody></table>
+<p><a id="c03"></a></p>
+<h3>C03 机械角与电角度</h3>
+<table>
+<thead>
+<tr>
+<th>字段</th>
+<th>内容</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>唯一核心问题</td>
+<td>极对数为什么改变换相频率？</td>
+</tr>
+<tr>
+<td>明确不解决</td>
+<td>不推导反电动势功率和六步表。</td>
+</tr>
+<tr>
+<td>终局能力映射</td>
+<td>CAP-SIXSTEP-01。</td>
+</tr>
+<tr>
+<td>前置 ID</td>
+<td>ENTRY-MATH、K-BRIDGE-STATE。</td>
+</tr>
+<tr>
+<td>最小心智模型</td>
+<td>电角度是机械角按极对数放大后的磁场角度。</td>
+</tr>
+<tr>
+<td>最小示例</td>
+<td>4 极对电机机械转 1 圈，电角度转 4 圈。</td>
+</tr>
+<tr>
+<td>正常场景</td>
+<td><code>one_pole_pair</code>：机械角和电角度同步。</td>
+</tr>
+<tr>
+<td>边界场景</td>
+<td><code>four_pole_pairs</code>：同一机械运动产生 4 倍电角增量。</td>
+</tr>
+<tr>
+<td>模型/源码</td>
+<td><code>models/plecs/ch03_electrical_angle/ch03_electrical_angle.plecs</code>、<code>scripts/ch03_plecs_electrical_angle.py</code>、<code>scripts/ch03_electrical_angle_postprocess.m</code>。</td>
+</tr>
+<tr>
+<td>独立判据</td>
+<td>连续机械角 unwrap 后按极对数计算电角增量，与 PLECS 输出交叉检查。</td>
+</tr>
+<tr>
+<td>结果数据</td>
+<td><code>waveforms/03-electrical-angle/plecs_*.csv</code>、<code>plecs_angle_summary.csv</code>。</td>
+</tr>
+<tr>
+<td>正式图片</td>
+<td><code>assets/03-electrical-angle/plecs_scope_mechanical_angle.png</code>、<code>mechanical_vs_electrical_angle.png</code>。</td>
+</tr>
+<tr>
+<td>图注契约</td>
+<td>对象：机械角、电角度和极对数；场景：1 与 4 极对；结论：换相频率由电角度决定。</td>
+</tr>
+<tr>
+<td>报告与复现文档</td>
+<td><code>reports/03-electrical-angle-test_report.md</code>、<code>docs/03-mechanical-and-electrical-angle-reproduce.md</code>。</td>
+</tr>
+<tr>
+<td>目标掌握级别</td>
+<td>L3 + L4。</td>
+</tr>
+<tr>
+<td>必须解释</td>
+<td>为什么换相看电角度而不是只看机械角。</td>
+</tr>
+<tr>
+<td>必须预测</td>
+<td>极对数加倍时，同机械速度下电角频率加倍。</td>
+</tr>
+<tr>
+<td>必须复现/诊断</td>
+<td>重新生成两极对数场景和角度映射图。</td>
+</tr>
+<tr>
+<td>可测过关标准</td>
+<td>2/2 场景 PASS，电角/机械角增量比等于极对数。</td>
+</tr>
+<tr>
+<td>下一章复用结论</td>
+<td>已有电角度，下一步用反电动势和电流判断转矩方向。</td>
+</tr>
+</tbody></table>
+<p><a id="c04"></a></p>
+<h3>C04 反电动势与转矩</h3>
+<table>
+<thead>
+<tr>
+<th>字段</th>
+<th>内容</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>唯一核心问题</td>
+<td><code>e*i</code> 怎样决定电磁转矩方向和功率流？</td>
+</tr>
+<tr>
+<td>明确不解决</td>
+<td>不生成六步表，不证明硬件效率。</td>
+</tr>
+<tr>
+<td>终局能力映射</td>
+<td>CAP-CHAIN-01、CAP-SIXSTEP-01。</td>
+</tr>
+<tr>
+<td>前置 ID</td>
+<td>K-NET-TORQUE、K-ELEC-ANGLE。</td>
+</tr>
+<tr>
+<td>最小心智模型</td>
+<td>三相 <code>e*i</code> 之和是电磁功率；在 <code>omega_m</code> 非零且单位为 rad/s 时，<code>sum(e*i) = Te * omega_m</code> 可用于校验转矩符号和功率方向，零速附近不靠除法求转矩。</td>
+</tr>
+<tr>
+<td>最小示例</td>
+<td>正电磁功率驱动电机，负电磁功率对应再生或制动。</td>
+</tr>
+<tr>
+<td>正常场景</td>
+<td><code>nominal_load</code>、<code>overload</code> 验证驱动功率链。</td>
+</tr>
+<tr>
+<td>边界场景</td>
+<td><code>regenerative_braking</code> 验证功率符号反转。</td>
+</tr>
+<tr>
+<td>模型/源码</td>
+<td><code>scripts/ch04_torque_power_check.py</code>、<code>scripts/ch04_torque_power_postprocess.m</code>。</td>
+</tr>
+<tr>
+<td>独立判据</td>
+<td>同一 PLECS 行内比较 <code>sum(e*i)</code> 与 <code>Te*omega_m</code> 的残差；剔除 <code>omega_m</code> 接近零而不适合做除法解释的样本。</td>
+</tr>
+<tr>
+<td>结果数据</td>
+<td><code>waveforms/04-torque-power/plecs_power_*.csv</code>、<code>plecs_power_summary.csv</code>。</td>
+</tr>
+<tr>
+<td>正式图片</td>
+<td><code>assets/04-torque-power/plecs_scope_regenerative_braking.png</code>、<code>plecs_power_balance_scenarios.png</code>、<code>plecs_ei_to_torque_nominal.png</code>。</td>
+</tr>
+<tr>
+<td>图注契约</td>
+<td>对象：反电动势、电流、功率和转矩；场景：驱动、过载、再生；结论：转矩方向来自功率符号。</td>
+</tr>
+<tr>
+<td>报告与复现文档</td>
+<td><code>reports/04-torque-power-test_report.md</code>、<code>docs/04-back-emf-and-torque-reproduce.md</code>。</td>
+</tr>
+<tr>
+<td>目标掌握级别</td>
+<td>L3 + L4。</td>
+</tr>
+<tr>
+<td>必须解释</td>
+<td>为什么同样大小的电流可能产生不同方向的转矩。</td>
+</tr>
+<tr>
+<td>必须预测</td>
+<td>改变电流和反电动势相对符号会改变功率符号。</td>
+</tr>
+<tr>
+<td>必须复现/诊断</td>
+<td>运行三场景并检查功率残差。</td>
+</tr>
+<tr>
+<td>可测过关标准</td>
+<td>3/3 场景 PASS，功率残差在浮点误差范围内。</td>
+</tr>
+<tr>
+<td>下一章复用结论</td>
+<td>六步表必须让相电流和反电动势在目标方向上做正功。</td>
+</tr>
+</tbody></table>
+<p><a id="c05"></a></p>
+<h3>C05 六步换相表</h3>
+<table>
+<thead>
+<tr>
+<th>字段</th>
+<th>内容</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>唯一核心问题</td>
+<td>为什么六个有效桥状态要按 120 度导通顺序切换？</td>
+</tr>
+<tr>
+<td>明确不解决</td>
+<td>不解决开环启动、Hall 位置反馈和 PWM 调能量。</td>
+</tr>
+<tr>
+<td>终局能力映射</td>
+<td>CAP-SIXSTEP-01、CAP-BRIDGE-01。</td>
+</tr>
+<tr>
+<td>前置 ID</td>
+<td>K-BRIDGE-STATE、K-ELEC-ANGLE、K-BEMF-POWER。</td>
+</tr>
+<tr>
+<td>最小心智模型</td>
+<td>每个 60 度电角扇区选择两相导通、一相悬空，让电磁功率方向符合目标转向。</td>
+</tr>
+<tr>
+<td>最小示例</td>
+<td>一个有效步里 A 高、B 低、C 悬空；下一步按电角扇区切换。</td>
+</tr>
+<tr>
+<td>正常场景</td>
+<td><code>forward</code> 正序六步。</td>
+</tr>
+<tr>
+<td>边界场景</td>
+<td><code>reverse</code> 反序、<code>all_off</code> 全关。</td>
+</tr>
+<tr>
+<td>模型/源码</td>
+<td><code>models/plecs/ch05_six_step_sequence/ch05_six_step_sequence.plecs</code>、<code>scripts/ch05_plecs_six_step.py</code>、<code>src/bldc_six_step.c</code>。</td>
+</tr>
+<tr>
+<td>独立判据</td>
+<td>测试侧物理 oracle 的期望表不从 C 表生成：解析梯形反电动势方程先给出每个 60 度电角扇区中心的 <code>eA/eB/eC</code>，理想两相导通桥臂/绕组模型再给出电流路径并计算 <code>sum(e*i)</code>；脚本把这份物理期望逐扇区对照 <code>src/bldc_six_step.c</code> 的 <code>forward[6]</code> 被测表；再对被测表施加整体扇区偏移、A/B 相标签交换、方向反置三类 mutation，要求状态不匹配或功率低于期望能被检出。PLECS 场景只负责桥状态合法性、顺序和三相电流 KCL。</td>
+</tr>
+<tr>
+<td>结果数据</td>
+<td><code>waveforms/05-six-step-sequence/*.csv</code>、<code>plecs_six_step_summary.csv</code>、<code>six_step_physical_oracle.csv</code>、<code>six_step_oracle_mutations.csv</code>。</td>
+</tr>
+<tr>
+<td>正式图片</td>
+<td><code>assets/05-six-step-sequence/plecs_scope_forward_sequence.png</code>、<code>plecs_forward_six_step.png</code>、<code>forward_reverse_sequence.png</code>。</td>
+</tr>
+<tr>
+<td>图注契约</td>
+<td>对象：六步相状态、电流和顺序；场景：正序、反序、全关；结论：六步命令合法并可作为开环输入。</td>
+</tr>
+<tr>
+<td>报告与复现文档</td>
+<td><code>reports/05-six-step-sequence-test_report.md</code>、<code>reports/05-six-step-physical-oracle.md</code>、<code>docs/05-six-step-commutation-reproduce.md</code>。</td>
+</tr>
+<tr>
+<td>目标掌握级别</td>
+<td>L3 + L4。</td>
+</tr>
+<tr>
+<td>必须解释</td>
+<td>为什么六步不是任意排列，而是由电角扇区和功率方向约束。</td>
+</tr>
+<tr>
+<td>必须预测</td>
+<td>顺序反转会改变旋转方向，全关不会产生驱动转矩。</td>
+</tr>
+<tr>
+<td>必须复现/诊断</td>
+<td>运行三场景并检查状态序列；运行物理 oracle 并解释为什么三类 mutation 必须失败。</td>
+</tr>
+<tr>
+<td>可测过关标准</td>
+<td>PLECS 三场景 3/3 PASS；C 表与物理 oracle 六扇区 6/6 匹配、每扇区归一化 <code>sum(e*i)</code> 为满功率；<code>sector_shift_plus_60deg</code>、<code>phase_label_swap_A_B</code>、<code>direction_inverted</code> 三类 mutation 全部 <code>FAIL_DETECTED</code>，生成 CAPABILITY_OUTPUT-C05。</td>
+</tr>
+<tr>
+<td>下一章复用结论</td>
+<td>六步序列可作为开环旋转磁场的命令输入。</td>
+</tr>
+</tbody></table>
+<p><a id="c06"></a></p>
+<h3>C06 开环电角频率</h3>
+<table>
+<thead>
+<tr>
+<th>字段</th>
+<th>内容</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>唯一核心问题</td>
+<td>命令电角在旋转时，转子为什么可能不跟随？</td>
+</tr>
+<tr>
+<td>明确不解决</td>
+<td>不从静止可靠启动，不使用 Hall 反馈。</td>
+</tr>
+<tr>
+<td>终局能力映射</td>
+<td>CAP-OPENLOOP-01。</td>
+</tr>
+<tr>
+<td>前置 ID</td>
+<td>CAPABILITY_OUTPUT-C05、K-ELEC-ANGLE。</td>
+</tr>
+<tr>
+<td>最小心智模型</td>
+<td>控制器按固定周期推进电角步进；转子是否跟随由平均转矩和惯量决定。</td>
+</tr>
+<tr>
+<td>最小示例</td>
+<td>慢速旋转磁场能给转子持续加速，过快时转矩正负抵消。</td>
+</tr>
+<tr>
+<td>正常场景</td>
+<td><code>slow_field</code> 产生正平均转矩并加速。</td>
+</tr>
+<tr>
+<td>边界场景</td>
+<td><code>fast_field</code> 复现无法跟随。</td>
+</tr>
+<tr>
+<td>模型/源码</td>
+<td><code>models/plecs/ch06_open_loop_angle/ch06_open_loop_angle.plecs</code>、<code>scripts/ch06_plecs_open_loop_angle.py</code>。</td>
+</tr>
+<tr>
+<td>独立判据</td>
+<td>命令电角、转子角、速度和转矩来自 PLECS 同场景输出。</td>
+</tr>
+<tr>
+<td>结果数据</td>
+<td><code>waveforms/06-open-loop-angle/*.csv</code>、<code>plecs_open_loop_summary.csv</code>。</td>
+</tr>
+<tr>
+<td>正式图片</td>
+<td><code>assets/06-open-loop-angle/plecs_scope_slow_field.png</code>、<code>slow_vs_fast_open_loop.png</code>。</td>
+</tr>
+<tr>
+<td>图注契约</td>
+<td>对象：命令电角、转子角、速度和转矩；场景：慢场、快场；结论：开环能否跟随取决于同步能力。</td>
+</tr>
+<tr>
+<td>报告与复现文档</td>
+<td><code>reports/06-open-loop-angle-test_report.md</code>、<code>docs/06-open-loop-electrical-angle-reproduce.md</code>。</td>
+</tr>
+<tr>
+<td>目标掌握级别</td>
+<td>L3 + L4。</td>
+</tr>
+<tr>
+<td>必须解释</td>
+<td>磁场旋转和转子旋转不是同一件事。</td>
+</tr>
+<tr>
+<td>必须预测</td>
+<td>频率过高时平均转矩会下降或抵消。</td>
+</tr>
+<tr>
+<td>必须复现/诊断</td>
+<td>运行慢/快两场景并比较转速趋势。</td>
+</tr>
+<tr>
+<td>可测过关标准</td>
+<td>2/2 场景 PASS。</td>
+</tr>
+<tr>
+<td>下一章复用结论</td>
+<td>从静止启动需要把命令频率按转子可跟随速度拉升。</td>
+</tr>
+</tbody></table>
+<p><a id="c07"></a></p>
+<h3>C07 启动斜坡</h3>
+<table>
+<thead>
+<tr>
+<th>字段</th>
+<th>内容</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>唯一核心问题</td>
+<td>静止转子为什么不能直接高频换相？</td>
+</tr>
+<tr>
+<td>明确不解决</td>
+<td>不判断 Hall 闭环，不优化启动电流。</td>
+</tr>
+<tr>
+<td>终局能力映射</td>
+<td>CAP-OPENLOOP-01。</td>
+</tr>
+<tr>
+<td>前置 ID</td>
+<td>K-OPENLOOP、K-NET-TORQUE。</td>
+</tr>
+<tr>
+<td>最小心智模型</td>
+<td>静止时先定位，再用较低频率启动并逐渐提高命令频率。</td>
+</tr>
+<tr>
+<td>最小示例</td>
+<td>斜坡启动让转子逐步跟上，直接高频可能只产生大电流和小速度。</td>
+</tr>
+<tr>
+<td>正常场景</td>
+<td><code>ramp_start</code>。</td>
+</tr>
+<tr>
+<td>边界场景</td>
+<td><code>direct_fast</code>。</td>
+</tr>
+<tr>
+<td>模型/源码</td>
+<td><code>models/plecs/ch07_startup_ramp/ch07_startup_ramp.plecs</code>、<code>scripts/ch07_plecs_startup_ramp.py</code>。</td>
+</tr>
+<tr>
+<td>独立判据</td>
+<td>最终速度、相位差、峰值电流和转矩来自 PLECS CSV。</td>
+</tr>
+<tr>
+<td>结果数据</td>
+<td><code>waveforms/07-startup-ramp/*.csv</code>、<code>plecs_startup_summary.csv</code>。</td>
+</tr>
+<tr>
+<td>正式图片</td>
+<td><code>assets/07-startup-ramp/plecs_scope_ramp_start.png</code>、<code>ramp_vs_direct_start.png</code>。</td>
+</tr>
+<tr>
+<td>图注契约</td>
+<td>对象：启动斜坡、速度、相位差和电流；场景：斜坡与直接高频；结论：斜坡降低无法同步风险。</td>
+</tr>
+<tr>
+<td>报告与复现文档</td>
+<td><code>reports/07-startup-ramp-test_report.md</code>、<code>docs/07-startup-ramp-reproduce.md</code>。</td>
+</tr>
+<tr>
+<td>目标掌握级别</td>
+<td>L3 + L4。</td>
+</tr>
+<tr>
+<td>必须解释</td>
+<td>静止启动的难点是让转子先获得可跟随的同步条件。</td>
+</tr>
+<tr>
+<td>必须预测</td>
+<td>直接高频启动会有更大的同步失败风险。</td>
+</tr>
+<tr>
+<td>必须复现/诊断</td>
+<td>运行两场景并比较相位差和速度。</td>
+</tr>
+<tr>
+<td>可测过关标准</td>
+<td>2/2 场景 PASS。</td>
+</tr>
+<tr>
+<td>下一章复用结论</td>
+<td>启动失败和负载扰动都可用相位差与速度滑移诊断。</td>
+</tr>
+</tbody></table>
+<p><a id="c08"></a></p>
+<h3>C08 开环失步</h3>
+<table>
+<thead>
+<tr>
+<th>字段</th>
+<th>内容</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>唯一核心问题</td>
+<td>负载或斜坡过快时，失步怎样被诊断？</td>
+</tr>
+<tr>
+<td>明确不解决</td>
+<td>不使用 Hall 修复失步，不做闭环控制。</td>
+</tr>
+<tr>
+<td>终局能力映射</td>
+<td>CAP-OPENLOOP-01。</td>
+</tr>
+<tr>
+<td>前置 ID</td>
+<td>K-STARTUP、K-NET-TORQUE。</td>
+</tr>
+<tr>
+<td>最小心智模型</td>
+<td>开环只有命令角，没有位置反馈；相位差持续滑移说明转子没有锁住命令磁场。</td>
+</tr>
+<tr>
+<td>最小示例</td>
+<td>命令角继续推进，但转子角无法保持相对位置。</td>
+</tr>
+<tr>
+<td>正常场景</td>
+<td><code>sync_follow</code> 是 PLECS 同步跟随正例；<code>signal_locked_reference</code> 只作为信号级同步判据夹具。</td>
+</tr>
+<tr>
+<td>边界场景</td>
+<td><code>gentle_ramp</code>、<code>overfast_ramp</code>、<code>load_step</code> 均为 PLECS 失步场景。</td>
+</tr>
+<tr>
+<td>模型/源码</td>
+<td><code>models/plecs/ch08_open_loop_desync/ch08_open_loop_desync.plecs</code>、<code>scripts/ch08_plecs_desync.py</code>。</td>
+</tr>
+<tr>
+<td>独立判据</td>
+<td>同次 PLECS 输出的命令角、转子角、速度和转矩；<code>desync_classifier_oracle.csv</code> 只固定同步/失步阈值。</td>
+</tr>
+<tr>
+<td>结果数据</td>
+<td><code>waveforms/08-open-loop-desync/*.csv</code>、<code>plecs_desync_summary.csv</code>、<code>desync_classifier_oracle.csv</code>。</td>
+</tr>
+<tr>
+<td>正式图片</td>
+<td><code>assets/08-open-loop-desync/plecs_scope_gentle_ramp.png</code>、<code>desync_three_scenarios.png</code>。</td>
+</tr>
+<tr>
+<td>图注契约</td>
+<td>对象：相位差、速度和转矩；场景：缓斜坡失步、过快失步、负载失步；结论：失步是同步关系破裂。</td>
+</tr>
+<tr>
+<td>报告与复现文档</td>
+<td><code>reports/08-open-loop-desync-test_report.md</code>、<code>reports/08-open-loop-desync-classifier.md</code>、<code>docs/08-open-loop-desynchronization-reproduce.md</code>。</td>
+</tr>
+<tr>
+<td>目标掌握级别</td>
+<td>L5 Diagnose。</td>
+</tr>
+<tr>
+<td>必须解释</td>
+<td>为什么看速度变化不够，还要看命令角与转子角的相对关系。</td>
+</tr>
+<tr>
+<td>必须预测</td>
+<td>负载阶跃或斜坡过快会使相位差失控。</td>
+</tr>
+<tr>
+<td>必须复现/诊断</td>
+<td>根据图和报告定位同步正例与三类失步指标。</td>
+</tr>
+<tr>
+<td>可测过关标准</td>
+<td>4 个 PLECS 场景均被同一分类器正确分类，<code>sync_follow</code> 为 <code>SYNC_FOLLOW_CONFIRMED</code>，三类失步为 <code>DESYNC_CONFIRMED</code>。</td>
+</tr>
+<tr>
+<td>下一章复用结论</td>
+<td>要减少开环相位盲区，需要引入位置反馈。</td>
+</tr>
+</tbody></table>
+<p><a id="c09"></a></p>
+<h3>C09 Hall 序列</h3>
+<table>
+<thead>
+<tr>
+<th>字段</th>
+<th>内容</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>唯一核心问题</td>
+<td>三路 Hall 为什么只有六个合法状态？</td>
+</tr>
+<tr>
+<td>明确不解决</td>
+<td>不把 Hall 直接等同于正确换相偏置。</td>
+</tr>
+<tr>
+<td>终局能力映射</td>
+<td>CAP-HALL-01。</td>
+</tr>
+<tr>
+<td>前置 ID</td>
+<td>K-ELEC-ANGLE、K-DESYNC。</td>
+</tr>
+<tr>
+<td>最小心智模型</td>
+<td>三个 Hall 传感器把一圈电角度分成六个稳定扇区，<code>000/111</code> 不代表有效扇区。</td>
+</tr>
+<tr>
+<td>最小示例</td>
+<td>正转和反转会以相反顺序经过同一组合法码。</td>
+</tr>
+<tr>
+<td>正常场景</td>
+<td><code>forward</code>、<code>reverse</code>。</td>
+</tr>
+<tr>
+<td>边界场景</td>
+<td><code>invalid_000</code>、<code>invalid_111</code>、<code>non_adjacent_legal_jump</code>。</td>
+</tr>
+<tr>
+<td>模型/源码</td>
+<td><code>models/plecs/ch09_hall_sequence/ch09_hall_sequence.plecs</code>、<code>scripts/ch09_plecs_hall_sequence.py</code>。</td>
+</tr>
+<tr>
+<td>独立判据</td>
+<td>PLECS Angle Sensor/Hall 输出与电角度序列对照；Hall 转移 oracle 用上一合法码、当前码和合法序列表判定相邻正转、相邻反转、保持、非法码或非相邻合法跳码。</td>
+</tr>
+<tr>
+<td>结果数据</td>
+<td><code>waveforms/09-hall-sequence/*.csv</code>、<code>plecs_hall_summary.csv</code>、<code>hall_transition_oracle.csv</code>。</td>
+</tr>
+<tr>
+<td>正式图片</td>
+<td><code>assets/09-hall-sequence/plecs_scope_hall_forward.png</code>、<code>hall_sequence_direction_invalid.png</code>。</td>
+</tr>
+<tr>
+<td>图注契约</td>
+<td>对象：Hall A/B/C、电角度和方向；场景：正反方向与非法码；结论：Hall 是离散扇区反馈。</td>
+</tr>
+<tr>
+<td>报告与复现文档</td>
+<td><code>reports/09-hall-sequence-test_report.md</code>、<code>reports/09-hall-transition-contract.md</code>、<code>docs/09-hall-sequence-reproduce.md</code>。</td>
+</tr>
+<tr>
+<td>目标掌握级别</td>
+<td>L3 + L4。</td>
+</tr>
+<tr>
+<td>必须解释</td>
+<td>合法 Hall 码、方向顺序和非法码的含义。</td>
+</tr>
+<tr>
+<td>必须预测</td>
+<td>反转时合法码顺序反过来，非法码和非相邻合法跳码都应产生 Hall 故障标志。</td>
+</tr>
+<tr>
+<td>必须复现/诊断</td>
+<td>运行四个 PLECS 场景并检查转移次数和非法标志；运行 Hall 转移 oracle 并解释非相邻合法跳码为什么不是有效换相依据。</td>
+</tr>
+<tr>
+<td>可测过关标准</td>
+<td>PLECS 4/4 场景 PASS；Hall 转移 oracle 6/6 用例 PASS。</td>
+</tr>
+<tr>
+<td>下一章复用结论</td>
+<td>Hall 只能给出扇区，仍需校准换相偏置。</td>
+</tr>
+</tbody></table>
+<p><a id="c10"></a></p>
+<h3>C10 Hall 换相偏置</h3>
+<table>
+<thead>
+<tr>
+<th>字段</th>
+<th>内容</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>唯一核心问题</td>
+<td>Hall 序列合法时，换相表为什么仍可能错？</td>
+</tr>
+<tr>
+<td>明确不解决</td>
+<td>不证明真实电机安装标定流程，不做硬件测试。</td>
+</tr>
+<tr>
+<td>终局能力映射</td>
+<td>CAP-HALL-01、CAP-SIXSTEP-01。</td>
+</tr>
+<tr>
+<td>前置 ID</td>
+<td>K-HALL-SECTOR、K-SIXSTEP、K-BEMF-POWER。</td>
+</tr>
+<tr>
+<td>最小心智模型</td>
+<td>Hall 码必须与相电流作用的电角扇区对齐；错一个偏置也可能合法但转矩方向错。</td>
+</tr>
+<tr>
+<td>最小示例</td>
+<td>offset 0 正常，offset 2 可能让平均转矩变负。</td>
+</tr>
+<tr>
+<td>正常场景</td>
+<td><code>offset_0</code>。</td>
+</tr>
+<tr>
+<td>边界场景</td>
+<td><code>offset_1</code> 到 <code>offset_5</code>、<code>reverse_table</code>、<code>all_off</code>。</td>
+</tr>
+<tr>
+<td>模型/源码</td>
+<td><code>models/plecs/ch10_hall_commutation/ch10_hall_commutation.plecs</code>、<code>scripts/ch10_plecs_hall_commutation.py</code>。</td>
+</tr>
+<tr>
+<td>独立判据</td>
+<td>转矩、速度和电流来自 PLECS，不用换相表自证正确。</td>
+</tr>
+<tr>
+<td>结果数据</td>
+<td><code>waveforms/10-hall-commutation/*.csv</code>、<code>plecs_hall_commutation_summary.csv</code>。</td>
+</tr>
+<tr>
+<td>正式图片</td>
+<td><code>assets/10-hall-commutation/plecs_scope_correct_hall.png</code>、<code>hall_offset_sweep.png</code>。</td>
+</tr>
+<tr>
+<td>图注契约</td>
+<td>对象：Hall 偏置扫描、速度、平均转矩和电流；场景：正确、错位、反表、全关；结论：合法 Hall 不等于正确换相。</td>
+</tr>
+<tr>
+<td>报告与复现文档</td>
+<td><code>reports/10-hall-commutation-test_report.md</code>、<code>docs/10-hall-commutation-reproduce.md</code>。</td>
+</tr>
+<tr>
+<td>目标掌握级别</td>
+<td>L5 Diagnose。</td>
+</tr>
+<tr>
+<td>必须解释</td>
+<td>偏置错误为什么能同时导致转矩下降和电流升高。</td>
+</tr>
+<tr>
+<td>必须预测</td>
+<td>错 60 度、反向表和全关会产生不同特征。</td>
+</tr>
+<tr>
+<td>必须复现/诊断</td>
+<td>运行 8 场景并从报告找出最佳偏置。</td>
+</tr>
+<tr>
+<td>可测过关标准</td>
+<td>8/8 场景按定义 PASS，能识别错误偏置不是控制正确。</td>
+</tr>
+<tr>
+<td>下一章复用结论</td>
+<td>Hall 换相表已对齐，下一步只改变每个步内的通电占空比。</td>
+</tr>
+</tbody></table>
+<p><a id="c11"></a></p>
+<h3>C11 PWM 与 deadtime</h3>
+<table>
+<thead>
+<tr>
+<th>字段</th>
+<th>内容</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>唯一核心问题</td>
+<td>duty 怎样调能量而不改变换相顺序？</td>
+</tr>
+<tr>
+<td>明确不解决</td>
+<td>不做速度 PI，不做真实驱动器死区优化。</td>
+</tr>
+<tr>
+<td>终局能力映射</td>
+<td>CAP-PWM-01。</td>
+</tr>
+<tr>
+<td>前置 ID</td>
+<td>K-HALL-OFFSET、K-BRIDGE-STATE。</td>
+</tr>
+<tr>
+<td>最小心智模型</td>
+<td>Hall 决定当前六步扇区，PWM 只决定该扇区在载波周期内通电多久。</td>
+</tr>
+<tr>
+<td>最小示例</td>
+<td>同一个 Hall 扇区下，25%、50%、75% duty 改变平均能量。</td>
+</tr>
+<tr>
+<td>正常场景</td>
+<td><code>duty_025</code>、<code>duty_050</code>、<code>duty_075</code>。</td>
+</tr>
+<tr>
+<td>边界场景</td>
+<td><code>zero_deadtime</code>、<code>large_deadtime</code>。</td>
+</tr>
+<tr>
+<td>模型/源码</td>
+<td><code>models/plecs/ch11_pwm_deadtime/ch11_pwm_deadtime.plecs</code>、<code>scripts/ch11_plecs_pwm_deadtime.py</code>。</td>
+</tr>
+<tr>
+<td>独立判据</td>
+<td>实测有效 duty、速度和相电流来自 PLECS CSV。</td>
+</tr>
+<tr>
+<td>结果数据</td>
+<td><code>waveforms/11-pwm-deadtime/*.csv</code>、<code>plecs_pwm_summary.csv</code>。</td>
+</tr>
+<tr>
+<td>正式图片</td>
+<td><code>assets/11-pwm-deadtime/plecs_scope_pwm_50.png</code>、<code>pwm_duty_comparison.png</code>。</td>
+</tr>
+<tr>
+<td>图注契约</td>
+<td>对象：10 kHz PWM、duty、deadtime、速度和相电流；场景：三档 duty 与死区边界；结论：PWM 调能量不改 Hall 顺序。</td>
+</tr>
+<tr>
+<td>报告与复现文档</td>
+<td><code>reports/11-pwm-deadtime-test_report.md</code>、<code>docs/11-pwm-deadtime-reproduce.md</code>。</td>
+</tr>
+<tr>
+<td>目标掌握级别</td>
+<td>L3 + L4。</td>
+</tr>
+<tr>
+<td>必须解释</td>
+<td>duty 不是目标速度，也不是 Hall 扇区。</td>
+</tr>
+<tr>
+<td>必须预测</td>
+<td>duty 增大通常提高可用平均电压和速度，大死区降低有效 duty。</td>
+</tr>
+<tr>
+<td>必须复现/诊断</td>
+<td>运行五场景并比较有效 duty。</td>
+</tr>
+<tr>
+<td>可测过关标准</td>
+<td>5/5 场景 PASS。</td>
+</tr>
+<tr>
+<td>下一章复用结论</td>
+<td>执行器输入是 duty；闭环前还需要速度反馈。</td>
+</tr>
+</tbody></table>
+<p><a id="c12"></a></p>
+<h3>C12 Hall 边沿测速</h3>
+<table>
+<thead>
+<tr>
+<th>字段</th>
+<th>内容</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>唯一核心问题</td>
+<td>离散 Hall 边沿怎样得到有符号速度？</td>
+</tr>
+<tr>
+<td>明确不解决</td>
+<td>不做 PI，不做无感估速，不处理真实输入捕获硬件。</td>
+</tr>
+<tr>
+<td>终局能力映射</td>
+<td>CAP-SPEED-01。</td>
+</tr>
+<tr>
+<td>前置 ID</td>
+<td>K-HALL-SECTOR、K-ELEC-ANGLE。</td>
+</tr>
+<tr>
+<td>最小心智模型</td>
+<td>Hall 解码层只把相邻合法转移作为测速事件；每次有效转移跨过 <code>pi/3</code> 电角度，机械速度按 <code>omega_m = s * (pi/3) / (pole_pairs * delta_t)</code> 计算，<code>s</code> 由正反序给出 <code>+1/-1</code>。</td>
+</tr>
+<tr>
+<td>最小示例</td>
+<td><code>pole_pairs=1</code>、相邻正转边沿间隔 <code>delta_t=0.010 s</code> 时，<code>omega_m = 104.72 rad/s</code>；间隔翻倍时估算速度减半。</td>
+</tr>
+<tr>
+<td>正常场景</td>
+<td><code>slow_25</code>、<code>medium_100</code>、<code>fast_400</code>、<code>reverse_100</code>。</td>
+</tr>
+<tr>
+<td>边界场景</td>
+<td><code>stopped_timeout</code>。</td>
+</tr>
+<tr>
+<td>模型/源码</td>
+<td><code>models/plecs/ch12_hall_speed/ch12_hall_speed.plecs</code>、<code>scripts/ch12_plecs_hall_speed.py</code>。</td>
+</tr>
+<tr>
+<td>独立判据</td>
+<td>有效 Hall 转移事件、时间戳、<code>delta_t</code> 和公式输出与 PLECS Machine 实际速度同场景比较；非相邻跳码不进入测速公式。</td>
+</tr>
+<tr>
+<td>结果数据</td>
+<td><code>waveforms/12-hall-speed/*.csv</code>、<code>plecs_hall_speed_summary.csv</code>。</td>
+</tr>
+<tr>
+<td>正式图片</td>
+<td><code>assets/12-hall-speed/plecs_scope_hall_edges_fast.png</code>、<code>hall_speed_quantization_timeout.png</code>。</td>
+</tr>
+<tr>
+<td>图注契约</td>
+<td>对象：Hall 边沿、原始估算、滤波和 timeout；场景：多速度、反转、静止；结论：Hall 可提供离散有符号速度反馈。</td>
+</tr>
+<tr>
+<td>报告与复现文档</td>
+<td><code>reports/12-hall-speed-test_report.md</code>、<code>docs/12-hall-speed-reproduce.md</code>。</td>
+</tr>
+<tr>
+<td>目标掌握级别</td>
+<td>L3 + L4。</td>
+</tr>
+<tr>
+<td>必须解释</td>
+<td>有效转移事件、时间戳、<code>delta_t</code>、方向符号、滤波和 timeout 为什么都属于 Hall 测速模块。</td>
+</tr>
+<tr>
+<td>必须预测</td>
+<td>速度越低边沿越稀疏，静止时必须靠 timeout 清零。</td>
+</tr>
+<tr>
+<td>必须复现/诊断</td>
+<td>运行五场景并解释边沿计数、误差和 timeout。</td>
+</tr>
+<tr>
+<td>可测过关标准</td>
+<td>5/5 场景 PASS。</td>
+</tr>
+<tr>
+<td>下一章复用结论</td>
+<td>已有速度反馈公式，下一步把速度误差转成 duty。</td>
+</tr>
+</tbody></table>
+<p><a id="c13"></a></p>
+<h3>C13 速度 PI</h3>
+<table>
+<thead>
+<tr>
+<th>字段</th>
+<th>内容</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>唯一核心问题</td>
+<td>速度误差怎样变成 duty，饱和怎样处理？</td>
+</tr>
+<tr>
+<td>明确不解决</td>
+<td>本章反馈先用 PLECS Machine 实际速度隔离 Hall 测速量化；不宣称完整 Hall 闭环。</td>
+</tr>
+<tr>
+<td>终局能力映射</td>
+<td>CAP-PI-01、CAP-PWM-01。</td>
+</tr>
+<tr>
+<td>前置 ID</td>
+<td>K-PWM-DUTY、K-HALL-SPEED、K-NET-TORQUE。</td>
+</tr>
+<tr>
+<td>最小心智模型</td>
+<td>PI 只负责把速度误差变成 duty；限幅保护执行器，抗饱和保护积分状态。</td>
+</tr>
+<tr>
+<td>最小示例</td>
+<td>duty 已到上限且目标降低时，继续积分会让恢复变慢。</td>
+</tr>
+<tr>
+<td>正常场景</td>
+<td><code>speed_step_aw</code>、<code>load_step_aw</code>。</td>
+</tr>
+<tr>
+<td>边界场景</td>
+<td><code>recovery_aw</code> 与 <code>recovery_no_aw</code>。</td>
+</tr>
+<tr>
+<td>模型/源码</td>
+<td><code>models/plecs/ch13_speed_pi/ch13_speed_pi.plecs</code>、<code>scripts/ch13_plecs_speed_pi.py</code>。</td>
+</tr>
+<tr>
+<td>独立判据</td>
+<td>开启/关闭抗饱和的恢复误差和饱和占比对照。</td>
+</tr>
+<tr>
+<td>结果数据</td>
+<td><code>waveforms/13-speed-pi/*.csv</code>、<code>plecs_speed_pi_summary.csv</code>。</td>
+</tr>
+<tr>
+<td>正式图片</td>
+<td><code>assets/13-speed-pi/plecs_scope_speed_pi.png</code>、<code>speed_pi_antiwindup.png</code>。</td>
+</tr>
+<tr>
+<td>图注契约</td>
+<td>对象：速度、目标、duty、积分和饱和；场景：目标阶跃、负载阶跃、恢复对照；结论：抗饱和改善限幅后的恢复。</td>
+</tr>
+<tr>
+<td>报告与复现文档</td>
+<td><code>reports/13-speed-pi-test_report.md</code>、<code>docs/13-speed-pi-reproduce.md</code>。</td>
+</tr>
+<tr>
+<td>目标掌握级别</td>
+<td>L5 Diagnose。</td>
+</tr>
+<tr>
+<td>必须解释</td>
+<td>PI、限幅、积分状态和 PWM 执行器的职责边界。</td>
+</tr>
+<tr>
+<td>必须预测</td>
+<td>无抗饱和恢复会比有抗饱和更慢。</td>
+</tr>
+<tr>
+<td>必须复现/诊断</td>
+<td>运行四场景并比较尾段误差和高限幅占比。</td>
+</tr>
+<tr>
+<td>可测过关标准</td>
+<td>4/4 场景 PASS。</td>
+</tr>
+<tr>
+<td>下一章复用结论</td>
+<td>PI 能输出 duty；完整闭环需要把 Hall 测速接入同一条链。</td>
+</tr>
+</tbody></table>
+<p><a id="c14"></a></p>
+<h3>C14 完整 Hall 六步闭环</h3>
+<table>
+<thead>
+<tr>
+<th>字段</th>
+<th>内容</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>唯一核心问题</td>
+<td>启动、Hall、PWM、测速和 PI 合并后能否通过场景验收？</td>
+</tr>
+<tr>
+<td>明确不解决</td>
+<td>不宣称 C 代码可编译、MCU 定时器正确、硬件可上板或无感/FOC 成立。</td>
+</tr>
+<tr>
+<td>终局能力映射</td>
+<td>CAP-INTEGRATION-01、CAP-HALL-01、CAP-SPEED-01、CAP-PI-01。</td>
+</tr>
+<tr>
+<td>前置 ID</td>
+<td>K-HALL-OFFSET、K-PWM-DUTY、K-HALL-SPEED、K-SPEED-PI、K-DESYNC。</td>
+</tr>
+<tr>
+<td>最小心智模型</td>
+<td>Hall 产生扇区和速度反馈，PI 生成 duty，PWM 和六步表驱动三相桥，电机状态再回到 Hall。</td>
+</tr>
+<tr>
+<td>最小示例</td>
+<td>非法 Hall 让换相层全关；过载让 duty 饱和但速度仍不足。</td>
+</tr>
+<tr>
+<td>正常场景</td>
+<td><code>zero_speed_start</code>、<code>target_step</code>、<code>load_step</code>。</td>
+</tr>
+<tr>
+<td>边界场景</td>
+<td><code>invalid_hall</code>、<code>overload</code>。</td>
+</tr>
+<tr>
+<td>模型/源码</td>
+<td><code>models/plecs/ch14_complete_hall_closed_loop/ch14_complete_hall_closed_loop.plecs</code>、<code>scripts/ch14_plecs_complete_closed_loop.py</code>。</td>
+</tr>
+<tr>
+<td>独立判据</td>
+<td>Hall 反馈速度与 PLECS Machine 实际速度尾段偏差、Hall 故障后门极合成层全关占比、高限幅占比、速度误差、峰值相电流、启动到 50 rad/s 时间、目标阶跃后到 55 rad/s 时间，以及五类失败样本谓词。</td>
+</tr>
+<tr>
+<td>结果数据</td>
+<td><code>waveforms/14-complete-hall-closed-loop/*.csv</code>、<code>plecs_closed_loop_summary.csv</code>、<code>plecs_acceptance_summary_v2.csv</code>、<code>acceptance_mutations.csv</code>。</td>
+</tr>
+<tr>
+<td>正式图片</td>
+<td><code>assets/14-complete-hall-closed-loop/plecs_scope_complete_startup.png</code>、<code>complete_closed_loop_scenarios.png</code>。</td>
+</tr>
+<tr>
+<td>图注契约</td>
+<td>对象：完整 Hall/control/gate 原生诊断链和五场景指标；场景：启动、目标、负载、非法 Hall、过载；结论：PLECS 仿真闭环通过验收，但不代表固件或硬件已完成。</td>
+</tr>
+<tr>
+<td>报告与复现文档</td>
+<td><code>reports/14-complete-hall-closed-loop-test_report.md</code>、<code>reports/14-complete-hall-acceptance-check.md</code>、<code>docs/14-complete-hall-closed-loop-reproduce.md</code>。</td>
+</tr>
+<tr>
+<td>目标掌握级别</td>
+<td>L5 Diagnose。</td>
+</tr>
+<tr>
+<td>必须解释</td>
+<td>Hall 解码层判定非法码和非相邻合法跳码，测速层只计算合法转移速度，PI 层只计算 duty，门极合成层唯一执行故障全关，过载由速度误差和 duty 限幅共同体现。</td>
+</tr>
+<tr>
+<td>必须预测</td>
+<td>Hall 故障会在门极合成层全关，过载会出现饱和和速度不足。</td>
+</tr>
+<tr>
+<td>必须复现/诊断</td>
+<td>运行五场景并定位每个 PASS 的真实含义；同时检查 Hall code、转移分类、fault、enable 和六路 gate 是否来自模型原生 CSV。</td>
+</tr>
+<tr>
+<td>场景判据</td>
+<td><code>zero_speed_start</code>：尾段速度误差 &lt;= 5 rad/s、Hall 尾段偏差 &lt;= 2 rad/s、启动到 50 rad/s &lt;= 0.03 s、故障全关占比 = 0、峰值相电流 &lt;= 35 A；<code>target_step</code>：尾段速度误差 &lt;= 5 rad/s、Hall 尾段偏差 &lt;= 2 rad/s、目标阶跃后到 55 rad/s &lt;= 0.12 s、高限幅占比 &lt;= 0.05；<code>load_step</code>：尾段速度误差 &lt;= 8 rad/s、Hall 尾段偏差 &lt;= 2 rad/s、负载后高限幅占比 &gt;= 0.5、故障全关占比 = 0；<code>invalid_hall</code>：注入非法 Hall 后故障全关占比 &gt;= 0.99，且正常段速度误差 &lt;= 5 rad/s；<code>overload</code>：尾段速度误差 &gt;= 15 rad/s、负载后高限幅占比 &gt;= 0.8、故障全关占比 = 0、峰值相电流 &lt;= 35 A，PASS 含义是正确识别过载而不是达到目标速度。</td>
+</tr>
+<tr>
+<td>失败样本</td>
+<td><code>startup_failure</code>、<code>steady_error_over_limit</code>、<code>load_recovery_timeout</code>、<code>invalid_hall_not_all_off</code>、<code>overload_misclassified</code> 必须分别让对应场景 FAIL；<code>acceptance_mutations.csv</code> 证明谓词能检出。</td>
+</tr>
+<tr>
+<td>可测过关标准</td>
+<td>PLECS 原生诊断 CSV 的五个正式场景 PASS，五类失败样本 <code>FAIL_DETECTED</code>，非法 Hall 窗口六路 gate 全关。</td>
+</tr>
+<tr>
+<td>下一章复用结论</td>
+<td>第一季闭环行为可作为 C15 主机侧测试参考，但不能替代 C 编译证据。</td>
+</tr>
+</tbody></table>
+<h2>9. 证据与掌握映射</h2>
+<table>
+<thead>
+<tr>
+<th>链 ID</th>
+<th>主张</th>
+<th>模型/源码</th>
+<th>独立判据及来源</th>
+<th>输入场景</th>
+<th>原始数据</th>
+<th>图片/报告</th>
+<th>读者任务</th>
+<th>掌握级别</th>
+<th>过关标准</th>
+<th>判定责任</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>E-C01</td>
+<td>电流存在仍会因净转矩不足而掉速。</td>
+<td>C01 PLECS 模型、Python 场景、MATLAB 后处理。</td>
+<td>简化机械方程下净转矩符号与 PLECS 速度趋势一致。</td>
+<td><code>nominal_load</code>、<code>overload</code>。</td>
+<td><code>waveforms/01-bldc-control-chain/*.csv</code>。</td>
+<td>C01 三张图和测试报告。</td>
+<td>手算净转矩方向并复现实验。</td>
+<td>L3+L4</td>
+<td>2/2 PASS。</td>
+<td><code>reports/01-bldc-control-chain-test_report.md</code>。</td>
+</tr>
+<tr>
+<td>E-C02</td>
+<td>三值相命令能追到桥臂和电流路径。</td>
+<td>C02 PLECS 桥模型。</td>
+<td>R-L 电流方向、KCL、64 组合分类。</td>
+<td>6 个导通 + 全关。</td>
+<td><code>waveforms/02-three-phase-bridge/*.csv</code>。</td>
+<td>C02 Scope、路径图、矩阵图。</td>
+<td>预测任一命令的电流方向。</td>
+<td>L3+L4</td>
+<td>7/7 PASS。</td>
+<td><code>reports/02-three-phase-bridge-test_report.md</code>。</td>
+</tr>
+<tr>
+<td>E-C03</td>
+<td>极对数决定电角速度。</td>
+<td>C03 PLECS 角度模型。</td>
+<td>unwrap 机械角后按极对数检查。</td>
+<td>1 极对、4 极对。</td>
+<td><code>waveforms/03-electrical-angle/*.csv</code>。</td>
+<td>C03 Scope 和角度图。</td>
+<td>预测电角增量比。</td>
+<td>L3+L4</td>
+<td>2/2 PASS。</td>
+<td><code>reports/03-electrical-angle-test_report.md</code>。</td>
+</tr>
+<tr>
+<td>E-C04</td>
+<td><code>sum(e*i)</code> 与 <code>Te*omega_m</code> 验证非零速功率一致性和能量流向。</td>
+<td>C04 检查脚本和 PLECS 输出。</td>
+<td>同行功率残差、SI 单位和非零速适用域；不把 <code>e*i</code> 当作零速转矩因果来源。</td>
+<td>驱动、过载、再生。</td>
+<td><code>waveforms/04-torque-power/*.csv</code>。</td>
+<td>C04 三张图和报告。</td>
+<td>判断功率符号，并说明零速转矩仍由相电流和转子磁链关系决定。</td>
+<td>L3+L4</td>
+<td>3/3 PASS。</td>
+<td><code>reports/04-torque-power-test_report.md</code>。</td>
+</tr>
+<tr>
+<td>E-C05</td>
+<td>六步序列合法，且每个扇区的 H/L/Z 与独立物理 oracle 一致。</td>
+<td>C05 PLECS/C 六步表、测试侧物理 oracle。</td>
+<td>解析梯形反电动势 -&gt; 桥臂/绕组电流路径 -&gt; <code>sum(e*i)</code>，再逐扇区对照 <code>src/bldc_six_step.c</code> 的 <code>forward[6]</code>；三类 mutation 必须由状态或功率判据失败；PLECS 只判断状态合法性、顺序和 KCL。</td>
+<td>正序、反序、全关、扇区偏移、相标签交换、方向反置。</td>
+<td><code>waveforms/05-six-step-sequence/*.csv</code>、<code>six_step_physical_oracle.csv</code>、<code>six_step_oracle_mutations.csv</code>。</td>
+<td>C05 Scope、序列图、<code>reports/05-six-step-physical-oracle.md</code>。</td>
+<td>推导一个扇区相状态，并解释 C 表匹配和 mutation 失败各证明什么。</td>
+<td>L3+L4</td>
+<td>PLECS 3/3 PASS，C 表与 oracle 6/6 满功率匹配，mutation 3/3 FAIL_DETECTED。</td>
+<td><code>reports/05-six-step-sequence-test_report.md</code>、<code>reports/05-six-step-physical-oracle.md</code>。</td>
+</tr>
+<tr>
+<td>E-C06</td>
+<td>开环频率过快会无法跟随。</td>
+<td>C06 PLECS 开环模型。</td>
+<td>命令角、转子角、转矩和速度同源比较。</td>
+<td>慢场、快场。</td>
+<td><code>waveforms/06-open-loop-angle/*.csv</code>。</td>
+<td>C06 Scope 和对比图。</td>
+<td>预测快场同步风险。</td>
+<td>L3+L4</td>
+<td>2/2 PASS。</td>
+<td><code>reports/06-open-loop-angle-test_report.md</code>。</td>
+</tr>
+<tr>
+<td>E-C07</td>
+<td>启动斜坡比直接高频更可跟随。</td>
+<td>C07 PLECS 启动模型。</td>
+<td>相位差、速度、峰值电流。</td>
+<td>斜坡、直接高频。</td>
+<td><code>waveforms/07-startup-ramp/*.csv</code>。</td>
+<td>C07 Scope 和对比图。</td>
+<td>解释静止启动路径。</td>
+<td>L3+L4</td>
+<td>2/2 PASS。</td>
+<td><code>reports/07-startup-ramp-test_report.md</code>。</td>
+</tr>
+<tr>
+<td>E-C08</td>
+<td>失步可由相位差和速度滑移诊断。</td>
+<td>C08 PLECS 失步模型和信号级分类 oracle。</td>
+<td>命令角与转子角相对关系；信号级夹具只固定分类阈值。</td>
+<td><code>sync_follow</code>、缓斜坡失步、过快失步、负载失步。</td>
+<td><code>waveforms/08-open-loop-desync/*.csv</code>、<code>desync_classifier_oracle.csv</code>。</td>
+<td>C08 Scope、三场景图、<code>reports/08-open-loop-desync-classifier.md</code>。</td>
+<td>定位同步/失步指标，并说明速度比和累计滑移怎样区分两类状态。</td>
+<td>L5</td>
+<td>PLECS 4/4 分类 PASS。</td>
+<td><code>reports/08-open-loop-desync-test_report.md</code>、<code>reports/08-open-loop-desync-classifier.md</code>。</td>
+</tr>
+<tr>
+<td>E-C09</td>
+<td>Hall 只有六个合法状态并携带方向，相邻转移才可用于换相和测速。</td>
+<td>C09 PLECS Hall 模型、Hall 转移 oracle。</td>
+<td>Hall 序列与电角度方向对照；上一合法码和当前码的相邻性分类。</td>
+<td>正转、反转、000、111、非相邻合法跳码。</td>
+<td><code>waveforms/09-hall-sequence/*.csv</code>、<code>hall_transition_oracle.csv</code>。</td>
+<td>C09 Scope、方向/非法图、<code>reports/09-hall-transition-contract.md</code>。</td>
+<td>识别合法码、方向、非法码和非相邻跳码。</td>
+<td>L3+L4</td>
+<td>PLECS 4/4 PASS，Hall 转移 oracle 6/6 PASS。</td>
+<td><code>reports/09-hall-sequence-test_report.md</code>、<code>reports/09-hall-transition-contract.md</code>。</td>
+</tr>
+<tr>
+<td>E-C10</td>
+<td>Hall 偏置错误可使合法序列产生错误转矩。</td>
+<td>C10 PLECS Hall 换相模型。</td>
+<td>速度、平均转矩、电流、Hall code、decoded sector、合法转移、enable/fault；Hall commutator 只消费 Hall interface 输出。</td>
+<td>6 偏置、反表、全关。</td>
+<td><code>waveforms/10-hall-commutation/*.csv</code>。</td>
+<td>C10 Scope 和偏置扫参图。</td>
+<td>找最佳偏置和错误特征，并追踪 Hall interface 到换相命令的数据流。</td>
+<td>L5</td>
+<td>8/8 PASS；Hall fault=0、正常 enable=1、全关 enable=0。</td>
+<td><code>reports/10-hall-commutation-test_report.md</code>。</td>
+</tr>
+<tr>
+<td>E-C11</td>
+<td>PWM duty 调能量，deadtime 改有效 duty。</td>
+<td>C11 PLECS PWM 模型。</td>
+<td>PLECS 有效 duty、速度和相电流。</td>
+<td>三档 duty、零/大死区。</td>
+<td><code>waveforms/11-pwm-deadtime/*.csv</code>。</td>
+<td>C11 Scope 和 duty 对比图。</td>
+<td>预测 duty 增大效果。</td>
+<td>L3+L4</td>
+<td>5/5 PASS。</td>
+<td><code>reports/11-pwm-deadtime-test_report.md</code>。</td>
+</tr>
+<tr>
+<td>E-C12</td>
+<td>Hall 相邻边沿可估算有符号速度。</td>
+<td>C12 PLECS Hall 测速模型和事件 oracle。</td>
+<td><code>omega_m = s * (pi/3) / (pole_pairs * delta_t)</code> 与 PLECS Machine 实际速度比较；PLECS 原生导出 raw/filtered speed、timeout 和 legal_edge_count。</td>
+<td>慢/中/快/反转/停止、4 极对、非法、非相邻、保持、超时恢复。</td>
+<td><code>waveforms/12-hall-speed/*.csv</code>、<code>hall_speed_event_oracle.csv</code>、<code>hall_speed_event_oracle_summary.csv</code>。</td>
+<td>C12 Scope、测速图、<code>reports/12-hall-speed-event-oracle.md</code>。</td>
+<td>手算一个边沿速度并解释滤波、量化、超时和非法跳码边界。</td>
+<td>L3+L4</td>
+<td>PLECS 6/6 PASS，事件 oracle 7/7 PASS。</td>
+<td><code>reports/12-hall-speed-test_report.md</code>、<code>reports/12-hall-speed-event-oracle.md</code>。</td>
+</tr>
+<tr>
+<td>E-C13</td>
+<td>PI、限幅和抗饱和决定 duty 恢复。</td>
+<td>C13 PLECS PI 模型。</td>
+<td>开关抗饱和对照。</td>
+<td>目标阶跃、负载阶跃、恢复对照。</td>
+<td><code>waveforms/13-speed-pi/*.csv</code>。</td>
+<td>C13 Scope 和 PI 图。</td>
+<td>诊断积分饱和。</td>
+<td>L5</td>
+<td>4/4 PASS。</td>
+<td><code>reports/13-speed-pi-test_report.md</code>。</td>
+</tr>
+<tr>
+<td>E-C14</td>
+<td>完整 Hall 六步闭环通过仿真验收。</td>
+<td>C14 PLECS 模型和原生诊断验收检查。</td>
+<td>每个场景绑定速度误差、Hall 偏差、启动/阶跃时间、全关占比、高限幅占比、峰值相电流、Hall fault/enable、Hall 边沿计数和失败样本谓词。</td>
+<td>启动、目标、负载、非法、过载，以及五类失败样本谓词。</td>
+<td><code>waveforms/14-complete-hall-closed-loop/*.csv</code>、<code>plecs_closed_loop_summary.csv</code>、<code>plecs_acceptance_summary_v2.csv</code>、<code>acceptance_mutations.csv</code>。</td>
+<td>C14 Scope、五场景图、量化报告、<code>reports/14-complete-hall-acceptance-check.md</code>。</td>
+<td>定位每场景 PASS 含义，并说明过载 PASS 不是达到目标速度。</td>
+<td>L5</td>
+<td>PLECS 原生诊断 5/5 PASS，五类失败样本 <code>FAIL_DETECTED</code>。</td>
+<td><code>reports/14-complete-hall-closed-loop-test_report.md</code>、<code>reports/14-complete-hall-acceptance-check.md</code>。</td>
+</tr>
+</tbody></table>
+<h3>学习者独立验收</h3>
+<p>系统验收只证明模型、脚本和报告对既定场景成立；学习者验收要证明读者能在未见输入上解释、预测或诊断。下面的任务不复用正文中的完整答案，作为章节发布或重写时的读者掌握检查。</p>
+<table>
+<thead>
+<tr>
+<th>能力 ID</th>
+<th>未见任务</th>
+<th>输入材料</th>
+<th>读者提交物</th>
+<th>评分关键点</th>
+<th>通过阈值</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>CAP-CHAIN-01</td>
+<td>给一组新的转矩、负载和速度片段，判断速度趋势。</td>
+<td>截取的 CSV 行和参数表。</td>
+<td>机械方程代入、速度趋势判断、功率一致性边界。</td>
+<td>能区分转矩因果链和 <code>e*i</code> 功率检查。</td>
+<td>3 个判断点至少 2 个正确，且边界说明正确。</td>
+</tr>
+<tr>
+<td>CAP-BRIDGE-01</td>
+<td>给一个未在正文展开的三值相命令，画出电流路径。</td>
+<td>相命令、母线极性、绕组连接。</td>
+<td>高/低/悬空相、线电压方向、无效组合判断。</td>
+<td>电流路径和直通判断不能互相矛盾。</td>
+<td>路径、状态、风险三项全对。</td>
+</tr>
+<tr>
+<td>CAP-SIXSTEP-01</td>
+<td>给一个电角扇区和转矩方向，推导 H/L/Z。</td>
+<td>扇区编号、反电动势符号、目标方向。</td>
+<td>两相导通、一相悬空、方向解释。</td>
+<td>不能只背表，必须说明物理判据。</td>
+<td>6 个扇区抽 2 个，至少 1 个完整正确且另一个无危险错误。</td>
+</tr>
+<tr>
+<td>CAP-OPENLOOP-01</td>
+<td>给未见相位差曲线，判断同步或失步。</td>
+<td>命令角、转子角、速度、负载变化。</td>
+<td>失步判断、证据点、可能原因。</td>
+<td>不能把“磁场在转”误判为“转子已跟随”。</td>
+<td>同步/失步判断和两个证据点正确。</td>
+</tr>
+<tr>
+<td>CAP-HALL-01</td>
+<td>给一段 Hall 序列和偏置，判断是否合法及换相风险。</td>
+<td>Hall A/B/C 序列、方向、偏置。</td>
+<td>合法码、方向、非相邻跳码、偏置风险。</td>
+<td>区分合法码、合法相邻转移和正确偏置。</td>
+<td>四类判断至少三类正确；非法/跳码不能漏判。</td>
+</tr>
+<tr>
+<td>CAP-PWM-01</td>
+<td>给 duty/deadtime 改动，预测平均能量变化。</td>
+<td>duty、deadtime、同一 Hall 扇区。</td>
+<td>有效通电时间、能量趋势、边界说明。</td>
+<td>不把 duty 当作换相顺序或目标速度。</td>
+<td>趋势正确且边界说明正确。</td>
+</tr>
+<tr>
+<td>CAP-SPEED-01</td>
+<td>给两次合法 Hall 边沿时间，计算机械速度。</td>
+<td><code>delta_t</code>、方向、极对数、合法性标志。</td>
+<td>公式、数值、符号、timeout 或跳码处理。</td>
+<td>非相邻跳码不能更新测速基准。</td>
+<td>数值误差在阈值内，异常处理正确。</td>
+</tr>
+<tr>
+<td>CAP-PI-01</td>
+<td>给一段误差、duty 和积分状态，诊断饱和。</td>
+<td>目标速度、反馈速度、duty、积分。</td>
+<td>饱和判断、抗饱和解释、恢复趋势。</td>
+<td>能说明为什么继续积分会拖慢恢复。</td>
+<td>饱和判断和恢复方向均正确。</td>
+</tr>
+<tr>
+<td>CAP-INTEGRATION-01</td>
+<td>给五场景中的一个未见故障片段，定位哪一层负责。</td>
+<td>Hall、duty、速度、相命令或门极诊断。</td>
+<td>责任层、验收谓词、不能证明的边界。</td>
+<td>不把离线后处理诊断当成模型内信号。</td>
+<td>责任层和边界说明正确。</td>
+</tr>
+</tbody></table>
+<h2>10. 双向覆盖检查</h2>
+<h3>能力到章节</h3>
+<table>
+<thead>
+<tr>
+<th>能力 ID</th>
+<th>建设章节</th>
+<th>集成章节</th>
+<th>证据是否完整</th>
+<th>缺口</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>CAP-CHAIN-01</td>
+<td>C01、C03、C04</td>
+<td>C14</td>
+<td>第一季仿真证据完整</td>
+<td>不覆盖硬件能效和热。</td>
+</tr>
+<tr>
+<td>CAP-BRIDGE-01</td>
+<td>C02</td>
+<td>C05、C14</td>
+<td>第一季仿真证据完整</td>
+<td>不覆盖真实驱动器死区损耗。</td>
+</tr>
+<tr>
+<td>CAP-SIXSTEP-01</td>
+<td>C03、C04、C05</td>
+<td>C10、C14</td>
+<td>第一季仿真证据完整</td>
+<td>C10 偏置物理标定仍是仿真夹具。</td>
+</tr>
+<tr>
+<td>CAP-OPENLOOP-01</td>
+<td>C06、C07、C08</td>
+<td>C14</td>
+<td>第一季仿真证据完整</td>
+<td>C08 不覆盖闭环修复，只诊断开环同步/失步。</td>
+</tr>
+<tr>
+<td>CAP-HALL-01</td>
+<td>C09、C10</td>
+<td>C14</td>
+<td>第一季仿真证据完整</td>
+<td>C10/C14 不覆盖真实传感器噪声和输入电路。</td>
+</tr>
+<tr>
+<td>CAP-PWM-01</td>
+<td>C11</td>
+<td>C13、C14</td>
+<td>第一季仿真证据完整</td>
+<td>不覆盖真实驱动芯片 deadtime。</td>
+</tr>
+<tr>
+<td>CAP-SPEED-01</td>
+<td>C12</td>
+<td>C14</td>
+<td>第一季仿真证据完整</td>
+<td>不覆盖无感估速和真实捕获定时器量化。</td>
+</tr>
+<tr>
+<td>CAP-PI-01</td>
+<td>C13</td>
+<td>C14</td>
+<td>第一季仿真证据完整</td>
+<td>不覆盖定点和溢出。</td>
+</tr>
+<tr>
+<td>CAP-INTEGRATION-01</td>
+<td>C01-C14</td>
+<td>C14</td>
+<td>第一季仿真证据完整</td>
+<td>不覆盖 C 编译、MCU 时序、HIL 或硬件。</td>
+</tr>
+<tr>
+<td>CAP-FW-01</td>
+<td>C15-C22</td>
+<td>C22</td>
+<td>未开始</td>
+<td>需要 C 编译、测试和硬件/CI 证据。</td>
+</tr>
+<tr>
+<td>CAP-SENSORLESS-01</td>
+<td>C23-C29</td>
+<td>C29</td>
+<td>未开始</td>
+<td>需要反电动势过零和无感接管证据。</td>
+</tr>
+<tr>
+<td>CAP-FOC-01</td>
+<td>C30-C36</td>
+<td>C36</td>
+<td>未开始</td>
+<td>需要 dq、电流环、SVPWM 和 FOC 对比证据。</td>
+</tr>
+</tbody></table>
+<h3>章节到能力</h3>
+<table>
+<thead>
+<tr>
+<th>章节</th>
+<th>推进的能力 ID</th>
+<th>独有贡献</th>
+<th>是否孤立章节</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>C00</td>
+<td>全部第一季能力导航</td>
+<td>建立路线和复现实验入口</td>
+<td>否，路线入口。</td>
+</tr>
+<tr>
+<td>C01</td>
+<td>CAP-CHAIN-01</td>
+<td>净转矩解释掉速</td>
+<td>否。</td>
+</tr>
+<tr>
+<td>C02</td>
+<td>CAP-BRIDGE-01</td>
+<td>相命令到桥臂电流路径</td>
+<td>否。</td>
+</tr>
+<tr>
+<td>C03</td>
+<td>CAP-SIXSTEP-01</td>
+<td>机械角到电角度</td>
+<td>否。</td>
+</tr>
+<tr>
+<td>C04</td>
+<td>CAP-CHAIN-01、CAP-SIXSTEP-01</td>
+<td><code>e*i</code> 功率一致性和能量符号</td>
+<td>否。</td>
+</tr>
+<tr>
+<td>C05</td>
+<td>CAP-SIXSTEP-01、CAP-BRIDGE-01</td>
+<td>120 度六步序列</td>
+<td>否。</td>
+</tr>
+<tr>
+<td>C06</td>
+<td>CAP-OPENLOOP-01</td>
+<td>开环命令角和转子跟随差异</td>
+<td>否。</td>
+</tr>
+<tr>
+<td>C07</td>
+<td>CAP-OPENLOOP-01</td>
+<td>启动斜坡</td>
+<td>否。</td>
+</tr>
+<tr>
+<td>C08</td>
+<td>CAP-OPENLOOP-01</td>
+<td>失步诊断</td>
+<td>否。</td>
+</tr>
+<tr>
+<td>C09</td>
+<td>CAP-HALL-01</td>
+<td>Hall 合法码、方向和非法码</td>
+<td>否。</td>
+</tr>
+<tr>
+<td>C10</td>
+<td>CAP-HALL-01、CAP-SIXSTEP-01</td>
+<td>Hall 偏置和错误转矩诊断</td>
+<td>否。</td>
+</tr>
+<tr>
+<td>C11</td>
+<td>CAP-PWM-01</td>
+<td>duty/deadtime 对能量的影响</td>
+<td>否。</td>
+</tr>
+<tr>
+<td>C12</td>
+<td>CAP-SPEED-01</td>
+<td>Hall 边沿测速、量化、超时</td>
+<td>否。</td>
+</tr>
+<tr>
+<td>C13</td>
+<td>CAP-PI-01、CAP-PWM-01</td>
+<td>速度 PI、限幅和抗饱和</td>
+<td>否。</td>
+</tr>
+<tr>
+<td>C14</td>
+<td>CAP-INTEGRATION-01</td>
+<td>第一季 PLECS 仿真闭环验收</td>
+<td>否。</td>
+</tr>
+</tbody></table>
+<h2>11. 架构门禁自检</h2>
+<ul>
+<li><input checked="" disabled="" type="checkbox"> 系统因果图描述真实对象，不是课程目录图。</li>
+<li><input checked="" disabled="" type="checkbox"> 知识依赖图无已知环路。</li>
+<li><input checked="" disabled="" type="checkbox"> 每个章节前置 ID 均能解析到注册表。</li>
+<li><input checked="" disabled="" type="checkbox"> 每个首次概念均定义目的、输入、责任、输出、证据边界和最小示例。</li>
+<li><input checked="" disabled="" type="checkbox"> 每项第一季终局能力都有章节、系统证据、学习者独立验收任务、掌握级别和可测过关标准。</li>
+<li><input checked="" disabled="" type="checkbox"> 每章都推进至少一项终局能力，并且只有一个可独立验证的核心问题。</li>
+<li><input checked="" disabled="" type="checkbox"> C01-C14 均有对应等级证据；C08、C10、C12 和 C14 的 PLECS 重跑缺口已关闭。</li>
+<li><input checked="" disabled="" type="checkbox"> C08 同步正例、C10-C14 Hall 解码接口闭合、C12 4 极对 PLECS 和 C14 Hall/control/gate 原生诊断均已重跑。</li>
+<li><input checked="" disabled="" type="checkbox"> 同源表格、模型或代码不被当作唯一物理真值；不适用处已写明边界。</li>
+<li><input checked="" disabled="" type="checkbox"> 每张正式证据图均定义对象、场景和支持结论。</li>
+<li><input checked="" disabled="" type="checkbox"> 下一章复用的是具体结论，不只是章节编号。</li>
+<li><input checked="" disabled="" type="checkbox"> 紧凑索引与详细契约合计覆盖全部必填字段。</li>
+<li><input checked="" disabled="" type="checkbox"> 本文件不包含模板变量。</li>
+</ul>
+<h2>12. 变更控制</h2>
+<p>出现以下任一情况时，本候选架构需要更新并重新进入外部审查记录：</p>
+<ol>
+<li>新增、删除、合并、拆分或重排章节。</li>
+<li>修改目标读者入口基线或终局能力。</li>
+<li>修改前置 ID、首次概念 owner 或证据判据。</li>
+<li>新实验推翻已有边界、场景结果或 pass criterion。</li>
+<li>将第一季仿真结论升级为 C 编译、HIL、硬件或量产控制结论。</li>
+</ol>
+<p>当前第一季 <code>C00-C14</code> 的证据基线来自现有仓库文件，C14 已可作为 PLECS 仿真行为参考。下一步若推进 C15，应先取得通过审查的 <code>CAPABILITY_OUTPUT-C14</code>，再建立 C 编译、主机测试和报告契约。</p>
+</main>
+<script>
+function wrapTables(){
+  document.querySelectorAll('table').forEach((table) => {
+    if (table.parentElement && table.parentElement.classList.contains('table-wrap')) return;
+    const wrapper = document.createElement('div');
+    wrapper.className = 'table-wrap';
+    table.parentNode.insertBefore(wrapper, table);
+    wrapper.appendChild(table);
+  });
+}
+function enhanceEvidenceMapping(){
+  const headings = Array.from(document.querySelectorAll('h2'));
+  const h2 = headings.find((node) => node.textContent.trim().startsWith('9. 证据与掌握映射'));
+  if (!h2) return;
+  const sectionNodes = [];
+  for (let node = h2; node; node = node.nextElementSibling) {
+    if (node !== h2 && node.tagName === 'H2') break;
+    sectionNodes.push(node);
+  }
+  sectionNodes.forEach((node) => node.classList && node.classList.add('evidence-section'));
+  const table = sectionNodes.find((node) => node.querySelector && node.querySelector('table'))?.querySelector('table');
+  if (!table) return;
+  const headers = Array.from(table.querySelectorAll('thead th')).map((th) => th.textContent.trim());
+  const cards = document.createElement('div');
+  cards.className = 'evidence-cards evidence-section';
+  table.querySelectorAll('tbody tr').forEach((tr) => {
+    const cells = Array.from(tr.children).map((td) => td.textContent.trim());
+    const card = document.createElement('article');
+    card.className = 'evidence-card';
+    const title = document.createElement('h3');
+    title.textContent = cells[0] || '证据链';
+    card.appendChild(title);
+    for (let i = 1; i < cells.length; i += 1) {
+      const field = document.createElement('div');
+      field.className = 'evidence-field';
+      const label = document.createElement('div');
+      label.className = 'evidence-label';
+      label.textContent = headers[i] || '';
+      const value = document.createElement('div');
+      value.textContent = cells[i] || '';
+      field.append(label, value);
+      card.appendChild(field);
+    }
+    cards.appendChild(card);
+  });
+  table.closest('.table-wrap').after(cards);
+}
+function enhanceDetailedContracts(){
+  const headings = Array.from(document.querySelectorAll('h2'));
+  const h2 = headings.find((node) => node.textContent.trim().startsWith('8. 单章详细契约'));
+  if (!h2) return;
+  const nodes = [];
+  for (let node = h2.nextElementSibling; node; node = node.nextElementSibling) {
+    if (node.tagName === 'H2') break;
+    nodes.push(node);
+  }
+  nodes.forEach((node) => {
+    if (!node.querySelectorAll) return;
+    node.querySelectorAll('table').forEach((table) => {
+      const wrapper = table.closest('.table-wrap');
+      if (!wrapper) return;
+      wrapper.classList.add('detailed-contract-section');
+      const card = document.createElement('article');
+      card.className = 'contract-card';
+      table.querySelectorAll('tbody tr').forEach((tr) => {
+        const cells = Array.from(tr.children).map((cell) => cell.textContent.trim());
+        if (cells.length < 2) return;
+        const field = document.createElement('div');
+        field.className = 'contract-field';
+        const label = document.createElement('div');
+        label.className = 'contract-label';
+        label.textContent = cells[0];
+        const value = document.createElement('div');
+        value.className = 'contract-value';
+        value.textContent = cells.slice(1).join(' ');
+        field.append(label, value);
+        card.appendChild(field);
+      });
+      wrapper.after(card);
+    });
+  });
+}
+function enhanceBidirectionalCoverage(){
+  const headings = Array.from(document.querySelectorAll('h2'));
+  const h2 = headings.find((node) => node.textContent.trim().startsWith('10. 双向覆盖检查'));
+  if (!h2) return;
+  const sectionNodes = [];
+  for (let node = h2; node; node = node.nextElementSibling) {
+    if (node !== h2 && node.tagName === 'H2') break;
+    sectionNodes.push(node);
+  }
+  sectionNodes.forEach((node) => node.classList && node.classList.add('bidirectional-coverage-section'));
+  sectionNodes.forEach((node) => {
+    if (!node.querySelectorAll) return;
+    node.querySelectorAll('table').forEach((table) => {
+      const wrapper = table.closest('.table-wrap');
+      if (!wrapper) return;
+      wrapper.classList.add('bidirectional-coverage-section');
+      const headers = Array.from(table.querySelectorAll('thead th')).map((th) => th.textContent.trim());
+      const cards = document.createElement('div');
+      cards.className = 'coverage-cards bidirectional-coverage-section';
+      table.querySelectorAll('tbody tr').forEach((tr) => {
+        const cells = Array.from(tr.children).map((td) => td.textContent.trim());
+        const card = document.createElement('article');
+        card.className = 'coverage-card';
+        const title = document.createElement('h3');
+        title.textContent = cells[0] || '覆盖项';
+        card.appendChild(title);
+        for (let i = 1; i < cells.length; i += 1) {
+          const field = document.createElement('div');
+          field.className = 'coverage-field';
+          const label = document.createElement('div');
+          label.className = 'coverage-label';
+          label.textContent = headers[i] || '';
+          const value = document.createElement('div');
+          value.textContent = cells[i] || '';
+          field.append(label, value);
+          card.appendChild(field);
+        }
+        cards.appendChild(card);
+      });
+      wrapper.after(cards);
+    });
+  });
+}
+window.addEventListener('DOMContentLoaded', () => {
+  wrapTables();
+  enhanceEvidenceMapping();
+  enhanceDetailedContracts();
+  enhanceBidirectionalCoverage();
+});
+</script>
+</body></html>

@@ -1,0 +1,66 @@
+{
+  "schema_version": 1,
+  "generated_utc": "2026-07-15T07:27:21.623Z",
+  "checks": [
+    {
+      "visual_id": "system_causal_map",
+      "viewport": "desktop",
+      "screenshot": "reports/renders/architecture-system-causal-map-desktop.png",
+      "node_count": 19,
+      "edge_count": 26,
+      "min_font_px": 16,
+      "out_of_bounds_nodes": [],
+      "overlapping_node_pairs": [],
+      "edge_list_clipped": false,
+      "page_vertical_overflow": false,
+      "page_horizontal_overflow": false,
+      "result": "PASS",
+      "violations": []
+    },
+    {
+      "visual_id": "system_causal_map",
+      "viewport": "mobile",
+      "screenshot": "reports/renders/architecture-system-causal-map-mobile.png",
+      "node_count": 19,
+      "edge_count": 26,
+      "min_font_px": 16,
+      "out_of_bounds_nodes": [],
+      "overlapping_node_pairs": [],
+      "edge_list_clipped": false,
+      "page_vertical_overflow": false,
+      "page_horizontal_overflow": false,
+      "result": "PASS",
+      "violations": []
+    },
+    {
+      "visual_id": "knowledge_dependency_dag",
+      "viewport": "desktop",
+      "screenshot": "reports/renders/architecture-knowledge-dependency-dag-desktop.png",
+      "node_count": 18,
+      "edge_count": 26,
+      "min_font_px": 16,
+      "out_of_bounds_nodes": [],
+      "overlapping_node_pairs": [],
+      "edge_list_clipped": false,
+      "page_vertical_overflow": false,
+      "page_horizontal_overflow": false,
+      "result": "PASS",
+      "violations": []
+    },
+    {
+      "visual_id": "knowledge_dependency_dag",
+      "viewport": "mobile",
+      "screenshot": "reports/renders/architecture-knowledge-dependency-dag-mobile.png",
+      "node_count": 18,
+      "edge_count": 26,
+      "min_font_px": 16,
+      "out_of_bounds_nodes": [],
+      "overlapping_node_pairs": [],
+      "edge_list_clipped": false,
+      "page_vertical_overflow": false,
+      "page_horizontal_overflow": false,
+      "result": "PASS",
+      "violations": []
+    }
+  ]
+}

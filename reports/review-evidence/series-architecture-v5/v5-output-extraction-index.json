@@ -1,0 +1,23 @@
+[
+    {
+        "track":  "engineering",
+        "agent_id":  "019f63e0-d0d8-7d93-82e6-ba7fbf90518f",
+        "session_jsonl":  "C:\\Users\\ww\\.codex\\sessions\\2026\\07\\15\\rollout-2026-07-15T11-45-10-019f63e0-d0d8-7d93-82e6-ba7fbf90518f.jsonl",
+        "output":  "D:\\1codex\\BLDC\\reports\\review-evidence\\series-architecture-v5\\engineering-initial-output.md",
+        "bytes":  23915
+    },
+    {
+        "track":  "ui-writing",
+        "agent_id":  "019f63e1-387d-76d0-b1ac-1071fdea47c0",
+        "session_jsonl":  "C:\\Users\\ww\\.codex\\sessions\\2026\\07\\15\\rollout-2026-07-15T11-45-37-019f63e1-387d-76d0-b1ac-1071fdea47c0.jsonl",
+        "output":  "D:\\1codex\\BLDC\\reports\\review-evidence\\series-architecture-v5\\ui-writing-initial-output.md",
+        "bytes":  17821
+    },
+    {
+        "track":  "reader-comprehension",
+        "agent_id":  "019f63e1-9553-7f93-8750-dbab036d56b1",
+        "session_jsonl":  "C:\\Users\\ww\\.codex\\sessions\\2026\\07\\15\\rollout-2026-07-15T11-46-01-019f63e1-9553-7f93-8750-dbab036d56b1.jsonl",
+        "output":  "D:\\1codex\\BLDC\\reports\\review-evidence\\series-architecture-v5\\reader-comprehension-initial-output.md",
+        "bytes":  21787
+    }
+]

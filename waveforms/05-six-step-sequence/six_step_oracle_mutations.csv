@@ -1,0 +1,4 @@
+mutation,mismatched_sectors,mismatched_sector_ids,below_expected_power_sectors,below_expected_power_sector_ids,non_positive_power_sectors,non_positive_power_sector_ids,result
+sector_shift_plus_60deg,6,0 1 2 3 4 5,6,0 1 2 3 4 5,0,-,FAIL_DETECTED
+phase_label_swap_A_B,6,0 1 2 3 4 5,6,0 1 2 3 4 5,2,0 3,FAIL_DETECTED
+direction_inverted,6,0 1 2 3 4 5,6,0 1 2 3 4 5,6,0 1 2 3 4 5,FAIL_DETECTED

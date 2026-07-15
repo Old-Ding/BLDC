@@ -12,6 +12,8 @@ p_em = p_mech
 
 本章不重新生成一套波形。额定、过载数据来自第 01 篇 PLECS 模型；再增加一个负电流参考的 PLECS 再生制动场景，然后在同一时刻逐点核对功率等式。
 
+读这一章时先做一个预测：如果电机仍在正转，`Te` 为正时 `Σ(e*i)` 应为正；若电流方向被反过来产生制动，`Te` 和 `Σ(e*i)` 应同时变为负。后面的 PLECS 和 CSV 只是在验证这个符号关系是否逐点成立。
+
 配套仓库：[https://github.com/Old-Ding/BLDC](https://github.com/Old-Ding/BLDC)
 
 ## 每相的 e·i 表示什么
@@ -175,6 +177,7 @@ Generated chapter 04 MATLAB post-processing. scenarios=3 pass=3 figures=2
 
 | 文件 | 作用 |
 |---|---|
+| [`models/plecs/ch01_bldc_baseline/ch01_bldc_baseline.plecs`](../models/plecs/ch01_bldc_baseline/ch01_bldc_baseline.plecs) | 本章复用的 BLDC Machine 和三相桥主模型 |
 | [`scripts/ch04_torque_power_check.py`](../scripts/ch04_torque_power_check.py) | 运行再生 PLECS 场景并对三个场景逐点计算功率 |
 | [`scripts/ch04_torque_power_postprocess.m`](../scripts/ch04_torque_power_postprocess.m) | 读取功率 CSV，生成能量链和场景对比图 |
 | [`waveforms/04-torque-power/plecs_power_summary.csv`](../waveforms/04-torque-power/plecs_power_summary.csv) | 三场景功率、转矩、速度和残差汇总 |

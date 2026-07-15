@@ -16,3 +16,5 @@ tmp/
 blog/csdn/*-body.md
 blog/csdn/*.meta.json
 blog/csdn/*-images/
+
+reports/review-packets/

@@ -1,0 +1,103 @@
+[
+  {
+    "viewport": "desktop",
+    "anchor": "top",
+    "width": 1365,
+    "height": 900,
+    "scroll_y": 0,
+    "screenshot": "reports/renders/architecture-desktop-top.png",
+    "page_scroll_width": 1365,
+    "page_client_width": 1365,
+    "page_scroll_height": 40631,
+    "page_client_height": 900,
+    "content_anchor": "top visible headings",
+    "expected_visible_content": [
+      "BLDC 技术教程系列架构",
+      "1. 目标读者",
+      "2. 终局工程能力",
+      "CAP-CHAIN-01 读懂电流到转速的因果链"
+    ]
+  },
+  {
+    "viewport": "desktop",
+    "anchor": "middle",
+    "width": 1365,
+    "height": 900,
+    "scroll_y": 19865,
+    "screenshot": "reports/renders/architecture-desktop-middle.png",
+    "page_scroll_width": 1365,
+    "page_client_width": 1365,
+    "page_scroll_height": 40631,
+    "page_client_height": 900,
+    "content_anchor": "middle visible headings",
+    "expected_visible_content": [
+      "C06 开环电角频率"
+    ]
+  },
+  {
+    "viewport": "desktop",
+    "anchor": "bottom",
+    "width": 1365,
+    "height": 900,
+    "scroll_y": 39731,
+    "screenshot": "reports/renders/architecture-desktop-bottom.png",
+    "page_scroll_width": 1365,
+    "page_client_width": 1365,
+    "page_scroll_height": 40631,
+    "page_client_height": 900,
+    "content_anchor": "bottom visible headings",
+    "expected_visible_content": [
+      "11. 架构门禁自检",
+      "12. 变更控制"
+    ]
+  },
+  {
+    "viewport": "mobile",
+    "anchor": "top",
+    "width": 390,
+    "height": 844,
+    "scroll_y": 0,
+    "screenshot": "reports/renders/architecture-mobile-top.png",
+    "page_scroll_width": 390,
+    "page_client_width": 390,
+    "page_scroll_height": 66167,
+    "page_client_height": 844,
+    "content_anchor": "top visible headings",
+    "expected_visible_content": [
+      "BLDC 技术教程系列架构",
+      "1. 目标读者"
+    ]
+  },
+  {
+    "viewport": "mobile",
+    "anchor": "middle",
+    "width": 390,
+    "height": 844,
+    "scroll_y": 32661,
+    "screenshot": "reports/renders/architecture-mobile-middle.png",
+    "page_scroll_width": 390,
+    "page_client_width": 390,
+    "page_scroll_height": 66167,
+    "page_client_height": 844,
+    "content_anchor": "middle visible headings",
+    "expected_visible_content": [
+      "visible architecture content"
+    ]
+  },
+  {
+    "viewport": "mobile",
+    "anchor": "bottom",
+    "width": 390,
+    "height": 844,
+    "scroll_y": 65323,
+    "screenshot": "reports/renders/architecture-mobile-bottom.png",
+    "page_scroll_width": 390,
+    "page_client_width": 390,
+    "page_scroll_height": 66167,
+    "page_client_height": 844,
+    "content_anchor": "bottom visible headings",
+    "expected_visible_content": [
+      "12. 变更控制"
+    ]
+  }
+]

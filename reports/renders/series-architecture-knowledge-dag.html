@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>知识依赖 DAG</title>
+<style>
+:root{color-scheme:light}
+body{margin:0;background:#fff;color:#111827;font:16px/1.35 "Microsoft YaHei",Arial,sans-serif}
+main{box-sizing:border-box;width:100vw;height:100vh;padding:18px;display:grid;grid-template-rows:auto 1fr auto;gap:10px}
+h1{font-size:24px;line-height:1.15;margin:0;text-align:center}
+.canvas{position:relative;border:1px solid #d8dee8;border-radius:8px;background:#fbfdff;overflow:hidden}
+.node{position:absolute;transform:translate(-50%,-50%);box-sizing:border-box;min-width:118px;max-width:160px;padding:6px 8px;border:2px solid #1d4ed8;border-radius:7px;background:#eff6ff;text-align:center;font-weight:700;font-size:16px;line-height:1.15;overflow-wrap:anywhere;word-break:break-word}
+svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
+.edge-list{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px 12px;margin:0;padding:0;list-style:none;font-size:16px}
+.edge-list li{white-space:nowrap;overflow:hidden;text-overflow:clip}
+body.mobile main{padding:8px;gap:6px;grid-template-rows:auto 520px auto}
+body.mobile h1{font-size:20px}
+body.mobile .node{min-width:84px;max-width:108px;padding:3px 4px;font-size:16px;line-height:1.08;border-width:1.5px}
+body.mobile .edge-list{grid-template-columns:repeat(2,minmax(0,1fr));font-size:16px;line-height:1.15;gap:2px 8px}
+</style>
+</head>
+<body class="desktop">
+<main>
+<h1>知识依赖 DAG</h1>
+<div class="canvas">
+<svg aria-hidden="true"></svg>
+<div class="node" data-node-id="E1" style="left:10%;top:14%">ENTRY-PWR</div>
+<div class="node" data-node-id="K1" style="left:10%;top:36%">K-NET-TORQUE</div>
+<div class="node" data-node-id="K2" style="left:28%;top:36%">K-BRIDGE-STATE</div>
+<div class="node" data-node-id="E2" style="left:28%;top:14%">ENTRY-MATH</div>
+<div class="node" data-node-id="K3" style="left:46%;top:36%">K-ELEC-ANGLE</div>
+<div class="node" data-node-id="E3" style="left:46%;top:14%">ENTRY-TOOL</div>
+<div class="node" data-node-id="K4" style="left:14%;top:55%">K-BEMF-POWER</div>
+<div class="node" data-node-id="K5" style="left:38%;top:55%">K-SIXSTEP</div>
+<div class="node" data-node-id="C5O" style="left:30%;top:68%">CAPABILITY_OUTPUT-C05</div>
+<div class="node" data-node-id="K6" style="left:16%;top:78%">K-OPENLOOP</div>
+<div class="node" data-node-id="K7" style="left:16%;top:91%">K-STARTUP</div>
+<div class="node" data-node-id="K8" style="left:32%;top:94%">K-DESYNC</div>
+<div class="node" data-node-id="K9" style="left:62%;top:55%">K-HALL-SECTOR</div>
+<div class="node" data-node-id="K10" style="left:60%;top:68%">K-HALL-OFFSET</div>
+<div class="node" data-node-id="K11" style="left:52%;top:82%">K-PWM-DUTY</div>
+<div class="node" data-node-id="K12" style="left:76%;top:68%">K-HALL-SPEED</div>
+<div class="node" data-node-id="K13" style="left:78%;top:82%">K-SPEED-PI</div>
+<div class="node" data-node-id="O1" style="left:90%;top:94%">CAPABILITY_OUTPUT-C14</div>
+</div>
+<ul class="edge-list"><li>ENTRY-PWR→K-NET-TORQUE</li>
+<li>ENTRY-PWR→K-BRIDGE-STATE</li>
+<li>ENTRY-MATH→K-ELEC-ANGLE</li>
+<li>ENTRY-TOOL→K-NET-TORQUE</li>
+<li>K-NET-TORQUE→K-BEMF-POWER</li>
+<li>K-BRIDGE-STATE→K-SIXSTEP</li>
+<li>K-ELEC-ANGLE→K-SIXSTEP</li>
+<li>K-BEMF-POWER→K-SIXSTEP</li>
+<li>K-SIXSTEP→CAPABILITY_OUTPUT-C05</li>
+<li>CAPABILITY_OUTPUT-C05→K-OPENLOOP</li>
+<li>K-OPENLOOP→K-STARTUP</li>
+<li>K-STARTUP→K-DESYNC</li>
+<li>K-ELEC-ANGLE→K-HALL-SECTOR</li>
+<li>K-DESYNC→K-HALL-SECTOR</li>
+<li>K-HALL-SECTOR→K-HALL-OFFSET</li>
+<li>K-SIXSTEP→K-HALL-OFFSET</li>
+<li>K-BEMF-POWER→K-HALL-OFFSET</li>
+<li>K-HALL-OFFSET→K-PWM-DUTY</li>
+<li>K-HALL-SECTOR→K-HALL-SPEED</li>
+<li>K-PWM-DUTY→K-SPEED-PI</li>
+<li>K-HALL-SPEED→K-SPEED-PI</li>
+<li>K-DESYNC→CAPABILITY_OUTPUT-C14</li>
+<li>K-HALL-OFFSET→CAPABILITY_OUTPUT-C14</li>
+<li>K-PWM-DUTY→CAPABILITY_OUTPUT-C14</li>
+<li>K-HALL-SPEED→CAPABILITY_OUTPUT-C14</li>
+<li>K-SPEED-PI→CAPABILITY_OUTPUT-C14</li></ul>
+</main>
+<script>
+const edges = [{"from":"E1","to":"K1"},{"from":"E1","to":"K2"},{"from":"E2","to":"K3"},{"from":"E3","to":"K1"},{"from":"K1","to":"K4"},{"from":"K2","to":"K5"},{"from":"K3","to":"K5"},{"from":"K4","to":"K5"},{"from":"K5","to":"C5O"},{"from":"C5O","to":"K6"},{"from":"K6","to":"K7"},{"from":"K7","to":"K8"},{"from":"K3","to":"K9"},{"from":"K8","to":"K9"},{"from":"K9","to":"K10"},{"from":"K5","to":"K10"},{"from":"K4","to":"K10"},{"from":"K10","to":"K11"},{"from":"K9","to":"K12"},{"from":"K11","to":"K13"},{"from":"K12","to":"K13"},{"from":"K8","to":"O1"},{"from":"K10","to":"O1"},{"from":"K11","to":"O1"},{"from":"K12","to":"O1"},{"from":"K13","to":"O1"}];
+function drawEdges(){
+  const svg = document.querySelector('svg');
+  if (!svg) return;
+  svg.innerHTML = '<defs><marker id="arrow" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto"><path d="M0,0 L7,3.5 L0,7 Z" fill="#475569"></path></marker></defs>';
+  const canvas = document.querySelector('.canvas').getBoundingClientRect();
+  for (const edge of edges) {
+    const from = document.querySelector('[data-node-id="' + edge.from + '"]').getBoundingClientRect();
+    const to = document.querySelector('[data-node-id="' + edge.to + '"]').getBoundingClientRect();
+    const x1 = from.left + from.width / 2 - canvas.left;
+    const y1 = from.top + from.height / 2 - canvas.top;
+    const x2 = to.left + to.width / 2 - canvas.left;
+    const y2 = to.top + to.height / 2 - canvas.top;
+    const dx = x2 - x1;
+    const dy = y2 - y1;
+    const len = Math.max(1, Math.sqrt(dx * dx + dy * dy));
+    const sourcePad = Math.min(42, len * 0.22);
+    const targetPad = Math.min(54, len * 0.28);
+    const line = document.createElementNS('http://www.w3.org/2000/svg','line');
+    line.setAttribute('x1', x1 + dx / len * sourcePad);
+    line.setAttribute('y1', y1 + dy / len * sourcePad);
+    line.setAttribute('x2', x2 - dx / len * targetPad);
+    line.setAttribute('y2', y2 - dy / len * targetPad);
+    line.setAttribute('stroke', '#475569');
+    line.setAttribute('stroke-width', '2');
+    line.setAttribute('marker-end', 'url(#arrow)');
+    svg.appendChild(line);
+  }
+}
+window.addEventListener('DOMContentLoaded', drawEdges);
+window.addEventListener('resize', drawEdges);
+</script>
+</body>
+</html>

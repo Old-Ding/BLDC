@@ -1,0 +1,12 @@
+{
+  "schema_version": 2,
+  "dag_node_count": 18,
+  "dag_edge_count": 26,
+  "registry_id_count": 18,
+  "prerequisite_use_count": 49,
+  "missing_from_dag": [],
+  "unresolved_prerequisite_ids": [],
+  "owner_order_violations": [],
+  "cycle": [],
+  "result": "PASS"
+}

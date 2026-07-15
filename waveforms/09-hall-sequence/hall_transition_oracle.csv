@@ -1,0 +1,7 @@
+case,previous_hall_code,current_hall_code,expected_class,actual_class,expected_reason,actual_reason,result
+forward_5_to_1,5,1,FORWARD,FORWARD,adjacent,adjacent,PASS
+reverse_5_to_4,5,4,REVERSE,REVERSE,adjacent,adjacent,PASS
+hold_5_to_5,5,5,HOLD,HOLD,same_sector,same_sector,PASS
+invalid_000,5,0,FAULT,FAULT,invalid_code,invalid_code,PASS
+invalid_111,5,7,FAULT,FAULT,invalid_code,invalid_code,PASS
+non_adjacent_5_to_3,5,3,FAULT,FAULT,non_adjacent_legal_jump,non_adjacent_legal_jump,PASS

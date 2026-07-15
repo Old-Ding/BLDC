@@ -1,0 +1,82 @@
+[
+  {
+    "visual_id": "system_causal_map",
+    "viewport": "desktop",
+    "source_heading": "## 3. 系统因果与数据流",
+    "screenshot": "reports/renders/architecture-system-causal-map-desktop.png",
+    "width": 1365,
+    "height": 900,
+    "scroll_y": 0,
+    "page_scroll_width": 1365,
+    "page_client_width": 1365,
+    "page_scroll_height": 900,
+    "page_client_height": 900,
+    "reported_minimum_font_px": 16,
+    "reported_visible_labels": [
+      "直流母线",
+      "三相桥",
+      "PWM/deadtime/全关覆盖/六路门极",
+      "相电流"
+    ]
+  },
+  {
+    "visual_id": "system_causal_map",
+    "viewport": "mobile",
+    "source_heading": "## 3. 系统因果与数据流",
+    "screenshot": "reports/renders/architecture-system-causal-map-mobile.png",
+    "width": 390,
+    "height": 844,
+    "scroll_y": 0,
+    "page_scroll_width": 390,
+    "page_client_width": 390,
+    "page_scroll_height": 844,
+    "page_client_height": 844,
+    "reported_minimum_font_px": 16,
+    "reported_visible_labels": [
+      "1直流母线 → 三相桥",
+      "2PWM/deadtime/全关覆盖/六路门极 → 三相桥",
+      "3三相桥 → 相电流",
+      "4机械角/速度 → 反电动势"
+    ]
+  },
+  {
+    "visual_id": "knowledge_dependency_dag",
+    "viewport": "desktop",
+    "source_heading": "## 4. 知识依赖图",
+    "screenshot": "reports/renders/architecture-knowledge-dependency-dag-desktop.png",
+    "width": 1365,
+    "height": 900,
+    "scroll_y": 0,
+    "page_scroll_width": 1365,
+    "page_client_width": 1365,
+    "page_scroll_height": 900,
+    "page_client_height": 900,
+    "reported_minimum_font_px": 16,
+    "reported_visible_labels": [
+      "ENTRY-PWR",
+      "K-NET-TORQUE",
+      "K-BRIDGE-STATE",
+      "ENTRY-MATH"
+    ]
+  },
+  {
+    "visual_id": "knowledge_dependency_dag",
+    "viewport": "mobile",
+    "source_heading": "## 4. 知识依赖图",
+    "screenshot": "reports/renders/architecture-knowledge-dependency-dag-mobile.png",
+    "width": 390,
+    "height": 844,
+    "scroll_y": 0,
+    "page_scroll_width": 390,
+    "page_client_width": 390,
+    "page_scroll_height": 844,
+    "page_client_height": 844,
+    "reported_minimum_font_px": 16,
+    "reported_visible_labels": [
+      "1ENTRY-PWR → K-NET-TORQUE",
+      "2ENTRY-PWR → K-BRIDGE-STATE",
+      "3ENTRY-MATH → K-ELEC-ANGLE",
+      "4ENTRY-TOOL → K-NET-TORQUE"
+    ]
+  }
+]

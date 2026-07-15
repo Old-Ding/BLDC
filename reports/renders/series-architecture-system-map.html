@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>系统因果 / 数据流图</title>
+<style>
+:root{color-scheme:light}
+body{margin:0;background:#fff;color:#111827;font:16px/1.35 "Microsoft YaHei",Arial,sans-serif}
+main{box-sizing:border-box;width:100vw;height:100vh;padding:18px;display:grid;grid-template-rows:auto 1fr auto;gap:10px}
+h1{font-size:24px;line-height:1.15;margin:0;text-align:center}
+.canvas{position:relative;border:1px solid #d8dee8;border-radius:8px;background:#fbfdff;overflow:hidden}
+.node{position:absolute;transform:translate(-50%,-50%);box-sizing:border-box;min-width:118px;max-width:160px;padding:6px 8px;border:2px solid #1d4ed8;border-radius:7px;background:#eff6ff;text-align:center;font-weight:700;font-size:16px;line-height:1.15;overflow-wrap:anywhere;word-break:break-word}
+svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
+.edge-list{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px 12px;margin:0;padding:0;list-style:none;font-size:16px}
+.edge-list li{white-space:nowrap;overflow:hidden;text-overflow:clip}
+body.mobile main{padding:8px;gap:6px;grid-template-rows:auto 520px auto}
+body.mobile h1{font-size:20px}
+body.mobile .node{min-width:84px;max-width:108px;padding:3px 4px;font-size:16px;line-height:1.08;border-width:1.5px}
+body.mobile .edge-list{grid-template-columns:repeat(2,minmax(0,1fr));font-size:16px;line-height:1.15;gap:2px 8px}
+</style>
+</head>
+<body class="desktop">
+<main>
+<h1>系统因果 / 数据流图</h1>
+<div class="canvas">
+<svg aria-hidden="true"></svg>
+<div class="node" data-node-id="DC" style="left:5%;top:34%">直流母线</div>
+<div class="node" data-node-id="INV" style="left:17%;top:34%">三相桥</div>
+<div class="node" data-node-id="GATE" style="left:30%;top:88%">PWM/deadtime/全关覆盖/六路门极</div>
+<div class="node" data-node-id="PH" style="left:29%;top:34%">相电流</div>
+<div class="node" data-node-id="MECH" style="left:68%;top:34%">机械角/速度</div>
+<div class="node" data-node-id="BEMF" style="left:42%;top:14%">反电动势</div>
+<div class="node" data-node-id="TORQUE" style="left:55%;top:34%">电磁转矩</div>
+<div class="node" data-node-id="POWER" style="left:42%;top:34%">功率一致性 e*i ↔ Te*omega</div>
+<div class="node" data-node-id="LOAD" style="left:68%;top:14%">负载转矩</div>
+<div class="node" data-node-id="HALL" style="left:82%;top:34%">Hall边沿</div>
+<div class="node" data-node-id="DEC" style="left:82%;top:56%">Hall解码/扇区/合法转移</div>
+<div class="node" data-node-id="EVENT" style="left:66%;top:56%">合法转移事件/时间戳</div>
+<div class="node" data-node-id="SPEED" style="left:50%;top:56%">Hall测速</div>
+<div class="node" data-node-id="FAULT" style="left:66%;top:86%">Hall故障标志</div>
+<div class="node" data-node-id="REF" style="left:27%;top:70%">目标速度</div>
+<div class="node" data-node-id="PI" style="left:43%;top:70%">速度误差/PI/限幅</div>
+<div class="node" data-node-id="DUTY" style="left:58%;top:70%">PI duty</div>
+<div class="node" data-node-id="TABLE" style="left:82%;top:74%">六步表 H/L/Z</div>
+<div class="node" data-node-id="SAFE" style="left:50%;top:86%">换相安全判定 enable</div>
+</div>
+<ul class="edge-list"><li>直流母线→三相桥</li>
+<li>PWM/deadtime/全关覆盖/六路门极→三相桥</li>
+<li>三相桥→相电流</li>
+<li>机械角/速度→反电动势</li>
+<li>反电动势→相电流</li>
+<li>相电流→电磁转矩</li>
+<li>机械角/速度→电磁转矩</li>
+<li>相电流→功率一致性 e*i ↔ Te*omega</li>
+<li>反电动势→功率一致性 e*i ↔ Te*omega</li>
+<li>电磁转矩→功率一致性 e*i ↔ Te*omega</li>
+<li>机械角/速度→功率一致性 e*i ↔ Te*omega</li>
+<li>负载转矩→机械角/速度</li>
+<li>电磁转矩→机械角/速度</li>
+<li>机械角/速度→Hall边沿</li>
+<li>Hall边沿→Hall解码/扇区/合法转移</li>
+<li>Hall解码/扇区/合法转移→合法转移事件/时间戳</li>
+<li>合法转移事件/时间戳→Hall测速</li>
+<li>Hall解码/扇区/合法转移→Hall故障标志</li>
+<li>目标速度→速度误差/PI/限幅</li>
+<li>Hall测速→速度误差/PI/限幅</li>
+<li>速度误差/PI/限幅→PI duty</li>
+<li>Hall解码/扇区/合法转移→六步表 H/L/Z</li>
+<li>Hall故障标志→换相安全判定 enable</li>
+<li>六步表 H/L/Z→PWM/deadtime/全关覆盖/六路门极</li>
+<li>PI duty→PWM/deadtime/全关覆盖/六路门极</li>
+<li>换相安全判定 enable→PWM/deadtime/全关覆盖/六路门极</li></ul>
+</main>
+<script>
+const edges = [{"from":"DC","to":"INV"},{"from":"GATE","to":"INV"},{"from":"INV","to":"PH"},{"from":"MECH","to":"BEMF"},{"from":"BEMF","to":"PH"},{"from":"PH","to":"TORQUE"},{"from":"MECH","to":"TORQUE"},{"from":"PH","to":"POWER"},{"from":"BEMF","to":"POWER"},{"from":"TORQUE","to":"POWER"},{"from":"MECH","to":"POWER"},{"from":"LOAD","to":"MECH"},{"from":"TORQUE","to":"MECH"},{"from":"MECH","to":"HALL"},{"from":"HALL","to":"DEC"},{"from":"DEC","to":"EVENT"},{"from":"EVENT","to":"SPEED"},{"from":"DEC","to":"FAULT"},{"from":"REF","to":"PI"},{"from":"SPEED","to":"PI"},{"from":"PI","to":"DUTY"},{"from":"DEC","to":"TABLE"},{"from":"FAULT","to":"SAFE"},{"from":"TABLE","to":"GATE"},{"from":"DUTY","to":"GATE"},{"from":"SAFE","to":"GATE"}];
+function drawEdges(){
+  const svg = document.querySelector('svg');
+  if (!svg) return;
+  svg.innerHTML = '<defs><marker id="arrow" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto"><path d="M0,0 L7,3.5 L0,7 Z" fill="#475569"></path></marker></defs>';
+  const canvas = document.querySelector('.canvas').getBoundingClientRect();
+  for (const edge of edges) {
+    const from = document.querySelector('[data-node-id="' + edge.from + '"]').getBoundingClientRect();
+    const to = document.querySelector('[data-node-id="' + edge.to + '"]').getBoundingClientRect();
+    const x1 = from.left + from.width / 2 - canvas.left;
+    const y1 = from.top + from.height / 2 - canvas.top;
+    const x2 = to.left + to.width / 2 - canvas.left;
+    const y2 = to.top + to.height / 2 - canvas.top;
+    const dx = x2 - x1;
+    const dy = y2 - y1;
+    const len = Math.max(1, Math.sqrt(dx * dx + dy * dy));
+    const sourcePad = Math.min(42, len * 0.22);
+    const targetPad = Math.min(54, len * 0.28);
+    const line = document.createElementNS('http://www.w3.org/2000/svg','line');
+    line.setAttribute('x1', x1 + dx / len * sourcePad);
+    line.setAttribute('y1', y1 + dy / len * sourcePad);
+    line.setAttribute('x2', x2 - dx / len * targetPad);
+    line.setAttribute('y2', y2 - dy / len * targetPad);
+    line.setAttribute('stroke', '#475569');
+    line.setAttribute('stroke-width', '2');
+    line.setAttribute('marker-end', 'url(#arrow)');
+    svg.appendChild(line);
+  }
+}
+window.addEventListener('DOMContentLoaded', drawEdges);
+window.addEventListener('resize', drawEdges);
+</script>
+</body>
+</html>

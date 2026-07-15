@@ -80,7 +80,7 @@ omega_m = direction * (pi/3) / (p * Delta_t)
 
 原生 Scope 显示 `zero_speed_start` 场景的 Machine 实际速度。启动初期 Hall 尚未形成完整测速周期，PI 输出较大，速度出现明显超调；随后 Hall 反馈按边沿更新，实际速度围绕 60 rad/s 周期波动。
 
-这张图证明真实 PLECS 开关桥和电机模型在闭环内运行。它不单独证明反馈来自 Hall，因此 CSV 还显式导出 `hall_speed_feedback_rad_s`，MATLAB 图把反馈量和 Machine 真值画在一起。
+这张图证明真实 PLECS 开关桥和电机模型在闭环内运行。CSV 同时导出 Hall A/B/C、Hall code、decoded sector、fault、enable、duty 和六路 gate；MATLAB 图把 Hall 反馈量和 Machine 真值画在一起。
 
 ## 五个验收场景
 
@@ -120,23 +120,23 @@ hall_tail_bias = abs(mean(machine_speed) - mean(hall_feedback))
 |---|---:|---:|---:|---:|---:|---|
 | `zero_speed_start` | 58.037 | 2.166 | 0.488 | 0.000 | 0.000 | PASS |
 | `target_step` | 64.168 | 1.958 | 0.243 | 0.000 | 0.000 | PASS |
-| `load_step` | 55.417 | 6.516 | 0.840 | 0.888 | 0.000 | PASS |
+| `load_step` | 55.417 | 6.516 | 0.840 | 0.947 | 0.000 | PASS |
 | `invalid_hall` | 63.663 | 1.988 | 0.842 | 0.000 | 1.000 | PASS |
-| `overload` | 28.826 | 20.718 | 0.057 | 0.904 | 0.000 | PASS |
+| `overload` | 28.826 | 20.718 | 0.057 | 0.947 | 0.000 | PASS |
 
-`fault_all_off_fraction=1.000` 表示非法 Hall 窗口内所有采样点的三相命令均为全关。`post_load_high_saturation_fraction=0.904` 表示过载后约 90.4% 的采样点处于高有效 duty 区域。
+`fault_all_off_fraction=1.000` 表示非法 Hall 窗口内所有采样点的六路 gate 均为全关。`post_load_high_saturation_fraction=0.947` 表示过载后约 94.7% 的采样点处于高有效 duty 区域。
 
 ## 第一季闭环到这里完成了什么
 
 | 证据 | 能证明 | 不要误读成 |
 |---|---|---|
 | 零速启动并建立 Hall 速度 | 无初始速度时闭环能够接管 | 所有负载和惯量下都能可靠启动 |
-| 目标、负载和故障场景同模运行 | 各模块的数据流已经接通 | 参数已经达到工业产品指标 |
+| 目标、负载和故障场景同模运行 | PLECS 原生 CSV 可用于同一套验收谓词检查 | 真实传感器输入电路、毛刺滤波和硬件保护已经覆盖 |
 | 非法 Hall 时全关并恢复 | 故障窗口职责分层正确 | 已覆盖断线、毛刺、错序等全部传感器故障 |
 | 过载时高限幅且速度塌落 | 执行器饱和边界可观察 | 已实现电流限制、堵转保护和热保护 |
 | PLECS、CSV、MATLAB 指标一致 | 结论可以由同一数据复核 | 已完成 MCU 时序、定点和硬件验证 |
 
-当前模型仍使用理想 Hall 位置、单极性高侧 PWM 教学结构和 PLECS 连续 C-Script。没有独立电流环、真实采样延迟、过流锁存、MCU 定时器或功率器件热模型。读这组结果时，应把它理解为“Hall 六步控制链在开关电机模型中闭环成立”，而不是“固件已经可以直接上板”。
+当前模型仍使用理想 Hall 位置、单极性高侧 PWM 教学结构和 PLECS 连续 C-Script。读这组结果时，应把它理解为“PLECS 仿真内 Hall interface、测速、PI、PWM 和 gate 诊断已经闭合”，不要误读成真实传感器硬件、MCU 定时、定点实现或上板安全裕量已经完成。
 
 ## 复现实验
 
@@ -144,13 +144,15 @@ hall_tail_bias = abs(mean(machine_speed) - mean(hall_feedback))
 Set-Location .\BLDC
 python .\scripts\build_ch14_plecs_model.py
 python .\scripts\ch14_plecs_complete_closed_loop.py
+python .\scripts\ch14_acceptance_check.py
 matlab -batch "run('scripts/ch14_closed_loop_postprocess.m')"
 ```
 
 期望输出：
 
 ```text
-Generated chapter 14 PLECS closed-loop evidence. scenarios=5 pass=5 time_points=50001 signals=16
+Generated chapter 14 PLECS closed-loop evidence. scenarios=5 pass=5 time_points=50001 signals=35
+Generated C14 acceptance check. formal_pass=True mutation_pass=True
 Generated chapter 14 MATLAB closed-loop figure. scenarios=5 figures=1
 ```
 
@@ -161,6 +163,7 @@ Generated chapter 14 MATLAB closed-loop figure. scenarios=5 figures=1
 | [`models/plecs/ch14_complete_hall_closed_loop/ch14_complete_hall_closed_loop.plecs`](../models/plecs/ch14_complete_hall_closed_loop/ch14_complete_hall_closed_loop.plecs) | 第一季完整 Hall 六步闭环模型 |
 | [`scripts/build_ch14_plecs_model.py`](../scripts/build_ch14_plecs_model.py) | 从第 13 章模型接入 Hall 边沿测速和故障恢复 |
 | [`scripts/ch14_plecs_complete_closed_loop.py`](../scripts/ch14_plecs_complete_closed_loop.py) | 五场景验收、CSV 和报告生成 |
+| [`scripts/ch14_acceptance_check.py`](../scripts/ch14_acceptance_check.py) | 复核 PLECS 原生 Hall/control/gate 字段和失败样本谓词 |
 | [`scripts/ch14_closed_loop_postprocess.m`](../scripts/ch14_closed_loop_postprocess.m) | Hall 反馈与 Machine 真值综合图 |
 | [`waveforms/14-complete-hall-closed-loop/plecs_closed_loop_summary.csv`](../waveforms/14-complete-hall-closed-loop/plecs_closed_loop_summary.csv) | 五场景指标汇总 |
 | [`reports/14-complete-hall-closed-loop-test_report.md`](../reports/14-complete-hall-closed-loop-test_report.md) | PASS/FAIL 报告 |

@@ -27,6 +27,8 @@ omega_sync = 2*pi*f_e/p
 | `slow_field` | 5 ms | 33.333 Hz | 209.440 rad/s |
 | `fast_field` | 1 ms | 166.667 Hz | 1047.198 rad/s |
 
+先手算慢场：`f_e = 33.333 Hz`，六步每个电周期走 6 步，所以 `T_step = 1/(6*f_e) = 5 ms`。本章 `p=1`，同步机械速度为 `omega_sync = 2*pi*f_e/p = 209.44 rad/s`。如果 PLECS 末值速度明显低于这个数，就说明命令磁场在转，但转子还没有同步跟上。
+
 两场景都从静止开始，母线为 48 V，无外部负载，仿真 60 ms。模型仍是 PLECS 两电平 IGBT 桥和 BLDC Machine：
 
 ```text

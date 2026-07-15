@@ -8,10 +8,11 @@
 Set-Location .\BLDC
 python .\scripts\build_ch08_plecs_model.py
 python .\scripts\ch08_plecs_desync.py
+python .\scripts\ch08_desync_classifier_oracle.py
 matlab -batch "run('scripts/ch08_desync_postprocess.m')"
 ```
 
-期望 `scenarios=3 pass=3 time_points=701 signals=15`，MATLAB 生成 1 张三场景诊断图。
+期望 `scenarios=4 pass=4 time_points=701 signals=15`；离线分类检查输出 `rows=4 pass=True`；MATLAB 生成 1 张三场景诊断图。
 
 ## 数据来源
 
@@ -21,15 +22,19 @@ matlab -batch "run('scripts/ch08_desync_postprocess.m')"
 | 负载阶跃 | PLECS 原生 `Step` 组件连接机械 Torque 端口 |
 | 连续命令电角 | Python 对场景频率积分，用于核对模型 C-Script |
 | 解包转子角、累计滑移、速度比 | Python 对 PLECS 返回值后处理 |
+| 同步/失步分类阈值 | PLECS `sync_follow` 正例和三类失步场景使用同一组速度比/相位滑移观测链；`scripts/ch08_desync_classifier_oracle.py` 只固定分类器边界 |
 | 对比图 | MATLAB 读取逐点 CSV |
 
 ## 最新结果
 
-| 场景 | 尾段速度/rad/s | 速度比 | 滑移/圈 | 结果 |
-|---|---:|---:|---:|---|
-| `gentle_ramp` | 13.900 | 0.0885 | 3.854 | PASS |
-| `overfast_ramp` | 0.077 | 0.0002 | 22.921 | PASS |
-| `load_step` | 13.930 | 0.0887 | 4.140 | PASS |
+| 场景 | 角色 | 尾段速度/rad/s | 速度比 | 滑移/圈 | 分类 | 结果 |
+|---|---|---:|---:|---:|---|---|
+| `sync_follow` | 同步跟随正例 | 60.045 | 0.9557 | 0.096 | SYNC_FOLLOW_CONFIRMED | PASS |
+| `gentle_ramp` | 缓斜坡失步基线 | 13.900 | 0.0885 | 3.854 | DESYNC_CONFIRMED | PASS |
+| `overfast_ramp` | 过快失步 | 0.077 | 0.0002 | 22.921 | DESYNC_CONFIRMED | PASS |
+| `load_step` | 负载失步 | 13.930 | 0.0887 | 4.140 | DESYNC_CONFIRMED | PASS |
+
+四个 PLECS 场景共用同一套观测列和分类器；`sync_follow` 是同步跟随正例，其余三项是失步对照。
 
 ## 生成物
 
@@ -38,9 +43,10 @@ matlab -batch "run('scripts/ch08_desync_postprocess.m')"
 | 模型 | `models/plecs/ch08_open_loop_desync/ch08_open_loop_desync.plecs` |
 | 原始 CSV | `waveforms/08-open-loop-desync/plecs_*.csv` |
 | 汇总 | `waveforms/08-open-loop-desync/plecs_desync_summary.csv` |
+| 分类 oracle | `waveforms/08-open-loop-desync/desync_classifier_oracle.csv` |
 | PLECS 截图 | `assets/08-open-loop-desync/plecs_scope_gentle_ramp.png` |
 | MATLAB 图 | `assets/08-open-loop-desync/desync_three_scenarios.png` |
-| 报告 | `reports/08-open-loop-desync-test_report.md` |
+| 报告 | `reports/08-open-loop-desync-test_report.md`、`reports/08-open-loop-desync-classifier.md` |
 
 ## 失败解释
 

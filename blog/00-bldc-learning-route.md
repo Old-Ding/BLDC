@@ -76,6 +76,8 @@ BLDC 系统可以沿同一条能量与信息链理解：
 
 速度曲线平滑并不能单独证明 Hall 六步闭环正确。只有 Hall 状态、换相扇区、PWM、测速和速度 PI 在同一模型中闭合，并且启动、扰动、非法 Hall 与过载场景都有可核对的数据和判据，闭环结果才成立。
 
+第一季结束时，读者应能完成一个具体任务：重新运行完整 Hall 六步闭环模型，拿到启动、目标阶跃、负载阶跃、非法 Hall 和过载五组结果，并说明每个 PASS 对应的物理或控制含义。这个能力只覆盖仿真闭环，不等于固件已经能编译或硬件已经能上板。
+
 ## 阶段 C：嵌入式固件工程
 
 | 篇章 | 主题 | 必须拿出的证据 |
@@ -141,7 +143,7 @@ Get-Content -LiteralPath .\docs\series-plan.md -Encoding UTF8
 Get-Content -LiteralPath .\blog\README.md -Encoding UTF8
 ```
 
-完整章节契约位于 `docs/series-plan.md`。正式 PLECS 模型进入 `models/plecs`；旧 `learning_model/steps` 中的 `Clock -> C-Script -> Scope` 文件只保留为历史信号拆层参考，不再承担功率级和电机主证据。
+完整章节契约位于 `docs/series-architecture.md`，公开路线总览位于 `docs/series-plan.md`。正式 PLECS 模型进入 `models/plecs`；旧 `learning_model/steps` 中的 `Clock -> C-Script -> Scope` 文件只保留为历史信号拆层参考，不再承担功率级和电机主证据。
 
 ## 这张路线图能回答什么
 

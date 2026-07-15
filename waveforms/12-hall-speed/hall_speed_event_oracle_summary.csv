@@ -1,0 +1,8 @@
+case,pole_pairs,last_transition_class,legal_edge_count,last_raw_speed_rad_s,expected_raw_speed_rad_s,result
+pole_pairs_1_forward,1,legal_forward,2,104.71975511965977,104.719755,PASS
+pole_pairs_4_forward,4,legal_forward,2,26.17993877991494,26.179939,PASS
+reverse,1,legal_reverse,2,-104.71975511965977,-104.719755,PASS
+invalid_ignored,1,legal_forward,2,104.71975511965978,104.719755,PASS
+non_adjacent_ignored,1,legal_forward,2,104.71975511965978,104.719755,PASS
+hold_ignored,1,legal_forward,2,104.71975511965978,104.719755,PASS
+timeout_recovery,1,legal_forward,3,104.71975511965981,104.719755,PASS
